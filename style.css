@@ -55,12 +55,12 @@
 /* Login Screen */
 .login-screen {
     position: fixed;
-    /* Fallback for browsers that don't support inset */
     top: 0;
     right: 0;
     bottom: 0;
     left: 0;
-    inset: 0;
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -69,6 +69,9 @@
 }
 
 .login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
     padding: 48px;
     max-width: 400px;
@@ -79,31 +82,41 @@
 .login-logo {
     width: 80px;
     height: 80px;
-    margin: 0 auto 24px;
+    min-width: 80px;
+    min-height: 80px;
+    max-width: 80px;
+    max-height: 80px;
+    margin-bottom: 24px;
     background: var(--pastel-lavender);
     border-radius: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .login-logo svg {
     width: 48px;
     height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    max-width: 48px;
+    max-height: 48px;
     color: #4a4063;
+    flex-shrink: 0;
 }
 
 .login-title {
     font-size: 2rem;
     font-weight: 700;
-    margin-bottom: 8px;
+    margin: 0 0 8px 0;
     color: var(--text-primary);
 }
 
 .login-subtitle {
     font-size: 1rem;
     color: var(--text-secondary);
-    margin-bottom: 32px;
+    margin: 0 0 32px 0;
     line-height: 1.5;
 }
 
@@ -117,12 +130,29 @@
     width: 100%;
     max-width: 280px;
     cursor: pointer;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: var(--accent-text);
+    font-weight: 600;
+    font-family: inherit;
+}
+
+.btn-login:hover {
+    background: var(--accent-hover);
+}
+
+.btn-login:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
 }
 
 .btn-login svg {
     flex-shrink: 0;
     width: 20px;
     height: 20px;
+    min-width: 20px;
+    min-height: 20px;
 }
 
 .login-hint {
