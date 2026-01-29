@@ -1802,3 +1802,11 @@ window.addEventListener('firebase-ready', () => {
         localStorage.setItem('firebaseMigrated', 'true');
     }
 });
+
+// Fallback: If Firebase doesn't connect within 5 seconds, show offline mode
+setTimeout(() => {
+    if (!firebaseReady) {
+        console.log('Firebase connection timeout, running in offline mode');
+        updateSyncStatus(false, 'Offline mode');
+    }
+}, 5000);

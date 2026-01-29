@@ -370,35 +370,40 @@
 
     <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        try {
+            const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js");
+            const { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
 
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyA2MxTgLgzze1G-ukr9HG5WzmsOa76OK_g",
-            authDomain: "recipebook-323a6.firebaseapp.com",
-            projectId: "recipebook-323a6",
-            storageBucket: "recipebook-323a6.firebasestorage.app",
-            messagingSenderId: "682711644168",
-            appId: "1:682711644168:web:928464fbaa052ddb02b9bd"
-        };
+            // Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyA2MxTgLgzze1G-ukr9HG5WzmsOa76OK_g",
+                authDomain: "recipebook-323a6.firebaseapp.com",
+                projectId: "recipebook-323a6",
+                storageBucket: "recipebook-323a6.firebasestorage.app",
+                messagingSenderId: "682711644168",
+                appId: "1:682711644168:web:928464fbaa052ddb02b9bd"
+            };
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+            // Initialize Firebase
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
 
-        // Make Firebase available globally for app.js
-        window.firebaseDb = db;
-        window.firebaseCollection = collection;
-        window.firebaseDoc = doc;
-        window.firebaseSetDoc = setDoc;
-        window.firebaseDeleteDoc = deleteDoc;
-        window.firebaseOnSnapshot = onSnapshot;
-        window.firebaseQuery = query;
-        window.firebaseOrderBy = orderBy;
+            // Make Firebase available globally for app.js
+            window.firebaseDb = db;
+            window.firebaseCollection = collection;
+            window.firebaseDoc = doc;
+            window.firebaseSetDoc = setDoc;
+            window.firebaseDeleteDoc = deleteDoc;
+            window.firebaseOnSnapshot = onSnapshot;
+            window.firebaseQuery = query;
+            window.firebaseOrderBy = orderBy;
 
-        // Signal that Firebase is ready
-        window.dispatchEvent(new Event('firebase-ready'));
+            // Signal that Firebase is ready
+            window.dispatchEvent(new Event('firebase-ready'));
+        } catch (error) {
+            console.error('Firebase initialization failed:', error);
+            // App will continue in offline mode
+        }
     </script>
 
     <script src="app.js"></script>
