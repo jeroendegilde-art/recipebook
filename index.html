@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipe Book</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1>Recipe Book</h1>
+                <button class="btn-icon" id="toggleTheme" title="Toggle theme">
+                    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+                    </svg>
+                    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="sidebar-actions">
+                <button class="btn btn-primary" id="addRecipeBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"></path>
+                    </svg>
+                    Add Recipe
+                </button>
+            </div>
+
+            <div class="search-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="M21 21l-4.35-4.35"></path>
+                </svg>
+                <input type="text" id="searchInput" placeholder="Search recipes...">
+            </div>
+
+            <nav class="recipe-list" id="recipeList">
+                <!-- Recipe items will be inserted here -->
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="footer-buttons">
+                    <button class="btn btn-secondary" id="syncBtn" title="Sync with iCloud">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Sync
+                    </button>
+                    <button class="btn-icon" id="settingsBtn" title="Settings">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Mobile header -->
+        <header class="mobile-header">
+            <button class="btn-icon" id="menuBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12h18M3 6h18M3 18h18"></path>
+                </svg>
+            </button>
+            <h1>Recipe Book</h1>
+            <button class="btn-icon" id="mobileAddBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"></path>
+                </svg>
+            </button>
+        </header>
+
+        <!-- Main content -->
+        <main class="main-content" id="mainContent">
+            <div class="empty-state" id="emptyState">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"></path>
+                </svg>
+                <h2>No recipes yet</h2>
+                <p>Add your first recipe to get started</p>
+                <button class="btn btn-primary" id="emptyAddBtn">Add Recipe</button>
+            </div>
+
+            <article class="recipe-detail" id="recipeDetail" style="display: none;">
+                <div class="recipe-header">
+                    <div class="recipe-title-row">
+                        <h2 id="recipeTitle"></h2>
+                        <div class="recipe-actions">
+                            <button class="btn-icon" id="editRecipeBtn" title="Edit recipe">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                            </button>
+                            <button class="btn-icon btn-danger" id="deleteRecipeBtn" title="Delete recipe">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <a href="#" id="recipeSource" class="recipe-source" target="_blank" rel="noopener"></a>
+                    <div class="recipe-meta" id="recipeMeta">
+                        <div class="recipe-meta-item" id="servingsDisplay" style="display: none;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            <span id="servingsText"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recipe-content">
+                    <section class="ingredients-section">
+                        <div class="section-header">
+                            <h3>Ingredients</h3>
+                            <button class="btn-copy" id="copyIngredientsBtn" title="Copy ingredients to clipboard">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                <span class="copy-text">Copy</span>
+                            </button>
+                        </div>
+                        <ul id="ingredientsList"></ul>
+                    </section>
+
+                    <section class="instructions-section">
+                        <h3>Instructions</h3>
+                        <ol id="instructionsList"></ol>
+                    </section>
+
+                    <section class="notes-section" id="notesSection" style="display: none;">
+                        <h3>Notes</h3>
+                        <p id="recipeNotes"></p>
+                    </section>
+                </div>
+            </article>
+        </main>
+    </div>
+
+    <!-- Add Recipe Modal -->
+    <div class="modal" id="addModal">
+        <div class="modal-backdrop" id="modalBackdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Recipe</h2>
+                <button class="btn-icon" id="closeModalBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Input type tabs -->
+                <div class="input-tabs">
+                    <button class="tab active" data-tab="url">From URL</button>
+                    <button class="tab" data-tab="paste">Paste HTML</button>
+                    <button class="tab" data-tab="text">Manual</button>
+                </div>
+
+                <!-- URL Input -->
+                <div class="tab-content active" id="urlTab">
+                    <div class="form-group">
+                        <label for="recipeUrl">Recipe URL</label>
+                        <input type="url" id="recipeUrl" placeholder="https://example.com/recipe">
+                        <p class="help-text">Paste a link to any recipe page. We'll extract the recipe and convert to metric.</p>
+                    </div>
+                    <button class="btn btn-primary btn-full" id="fetchUrlBtn">
+                        <span class="btn-text">Extract Recipe</span>
+                        <span class="btn-loading" style="display: none;">
+                            <svg class="spinner" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"></circle>
+                            </svg>
+                            Extracting...
+                        </span>
+                    </button>
+                </div>
+
+                <!-- Paste HTML Input -->
+                <div class="tab-content" id="pasteTab">
+                    <div class="form-group">
+                        <label for="pasteSource">Source URL (optional)</label>
+                        <input type="url" id="pasteSource" placeholder="https://example.com/recipe">
+                    </div>
+                    <div class="form-group">
+                        <label for="pasteHtml">Page Content</label>
+                        <textarea id="pasteHtml" rows="8" placeholder="Open the recipe page, press Cmd+A to select all, Cmd+C to copy, then paste here..."></textarea>
+                        <p class="help-text">Copy the entire page content (Cmd+A, Cmd+C on the recipe page) and paste here. Works with any site!</p>
+                    </div>
+                    <button class="btn btn-primary btn-full" id="parseHtmlBtn">Extract Recipe</button>
+                </div>
+
+                <!-- Manual Input -->
+                <div class="tab-content" id="textTab">
+                    <div class="form-group">
+                        <label for="manualTitle">Recipe Title</label>
+                        <input type="text" id="manualTitle" placeholder="Chocolate Chip Cookies">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualServings">Servings</label>
+                        <input type="text" id="manualServings" placeholder="4 people">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualIngredients">Ingredients</label>
+                        <textarea id="manualIngredients" rows="6" placeholder="1 cup flour&#10;2 eggs&#10;1/2 cup sugar..."></textarea>
+                        <p class="help-text">One ingredient per line. US measurements will be converted to metric.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="manualInstructions">Instructions</label>
+                        <textarea id="manualInstructions" rows="6" placeholder="1. Preheat oven to 350°F&#10;2. Mix dry ingredients..."></textarea>
+                        <p class="help-text">One step per line, or numbered steps.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="manualSource">Source URL (optional)</label>
+                        <input type="url" id="manualSource" placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualNotes">Notes (optional)</label>
+                        <textarea id="manualNotes" rows="3" placeholder="Any tips or modifications..."></textarea>
+                    </div>
+                    <button class="btn btn-primary btn-full" id="saveManualBtn">Save Recipe</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Recipe Modal -->
+    <div class="modal" id="editModal">
+        <div class="modal-backdrop" id="editModalBackdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Recipe</h2>
+                <button class="btn-icon" id="closeEditModalBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editTitle">Recipe Title</label>
+                    <input type="text" id="editTitle">
+                </div>
+                <div class="form-group">
+                    <label for="editServings">Servings</label>
+                    <input type="text" id="editServings" placeholder="4 people">
+                </div>
+                <div class="form-group">
+                    <label for="editIngredients">Ingredients</label>
+                    <textarea id="editIngredients" rows="8"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editInstructions">Instructions</label>
+                    <textarea id="editInstructions" rows="8"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editSource">Source URL</label>
+                    <input type="url" id="editSource">
+                </div>
+                <div class="form-group">
+                    <label for="editNotes">Notes</label>
+                    <textarea id="editNotes" rows="3"></textarea>
+                </div>
+                <button class="btn btn-primary btn-full" id="saveEditBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sync Modal -->
+    <div class="modal" id="syncModal">
+        <div class="modal-backdrop" id="syncModalBackdrop"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Sync Recipes</h2>
+                <button class="btn-icon" id="closeSyncModalBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="modal-body sync-options">
+                <p class="sync-info">Save your recipes to iCloud Drive to sync across all your devices.</p>
+
+                <button class="btn btn-secondary btn-full" id="exportBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Save to File
+                </button>
+
+                <button class="btn btn-secondary btn-full" id="importBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    Load from File
+                </button>
+
+                <input type="file" id="importFile" accept=".json" style="display: none;">
+
+                <p class="sync-tip">Tip: Save to your iCloud Drive folder for automatic sync across devices.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-backdrop" id="settingsModalBackdrop"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="btn-icon" id="closeSettingsModalBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="apiKeyInput">Claude API Key</label>
+                    <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-...">
+                    <p class="help-text">
+                        Get your key at <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a><br>
+                        <strong>Important:</strong> You must enable "Allow browser access" when creating the key.
+                    </p>
+                </div>
+                <div class="settings-buttons">
+                    <button class="btn btn-primary" id="saveSettingsBtn">Save</button>
+                    <button class="btn btn-secondary" id="testApiBtn">Test Connection</button>
+                </div>
+
+                <div class="api-status" id="apiStatus" style="margin-top: 16px; text-align: center;">
+                    <!-- Status will be shown here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
