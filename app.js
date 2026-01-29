@@ -2288,6 +2288,60 @@ function setupEventListeners() {
 }
 
 // ============================================
+// Migration: Move recipes from shared collection to user collection
+// ============================================
+
+async function migrateRecipesFromSharedCollection() {
+    if (!window.firebaseDb || !currentUser) return;
+
+    try {
+        console.log('Checking for recipes in shared collection to migrate...');
+
+        // Check the old shared 'recipes' collection
+        const sharedRecipesRef = window.firebaseCollection(window.firebaseDb, 'recipes');
+        const q = window.firebaseQuery(sharedRecipesRef, window.firebaseOrderBy('createdAt', 'desc'));
+
+        // Get recipes from shared collection (one-time fetch, not a listener)
+        const snapshot = await new Promise((resolve, reject) => {
+            const unsubscribe = window.firebaseOnSnapshot(q, (snap) => {
+                unsubscribe(); // Immediately unsubscribe after getting data
+                resolve(snap);
+            }, reject);
+        });
+
+        const sharedRecipes = [];
+        snapshot.forEach((doc) => {
+            sharedRecipes.push({ ...doc.data(), _docId: doc.id });
+        });
+
+        if (sharedRecipes.length === 0) {
+            console.log('No recipes in shared collection to migrate');
+            return;
+        }
+
+        console.log(`Found ${sharedRecipes.length} recipes in shared collection, migrating...`);
+        showToast(`Migrating ${sharedRecipes.length} recipes to your account...`, 'info');
+
+        // Copy each recipe to the user's collection
+        for (const recipe of sharedRecipes) {
+            const docId = recipe._docId;
+            delete recipe._docId; // Remove the temporary field
+
+            const userDocRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid, 'recipes', docId);
+            await window.firebaseSetDoc(userDocRef, recipe);
+            console.log('Migrated recipe:', recipe.title);
+        }
+
+        showToast(`Successfully migrated ${sharedRecipes.length} recipes!`, 'success');
+        console.log('Migration complete!');
+
+    } catch (error) {
+        console.error('Error migrating recipes:', error);
+        showToast('Failed to migrate recipes: ' + error.message, 'error');
+    }
+}
+
+// ============================================
 // Initialize
 // ============================================
 
@@ -2325,12 +2379,17 @@ window.addEventListener('firebase-ready', () => {
 
     // Set up auth state listener
     if (window.firebaseOnAuthStateChanged && window.firebaseAuth) {
-        window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
+        window.firebaseOnAuthStateChanged(window.firebaseAuth, async (user) => {
             currentUser = user;
             updateAuthUI();
 
             if (user) {
                 console.log('User signed in:', user.email);
+
+                // First, try to migrate recipes from the old shared collection
+                await migrateRecipesFromSharedCollection();
+
+                // Then set up listeners for the user's collection
                 setupFirebaseListener();
                 setupFoldersListener();
                 setupUserSettingsListener();
