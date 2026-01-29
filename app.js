@@ -4,13 +4,18 @@
 // Storage keys
 const STORAGE_KEY = 'recipeBook';
 const API_KEY_STORAGE = 'recipeBookApiKey';
+const FOLDERS_STORAGE = 'recipeBookFolders';
 
 // State
 let recipes = [];
+let folders = [];
 let currentRecipeId = null;
+let currentFolderId = 'all';
+let currentUser = null;
 let claudeApiKey = null;
 let firebaseReady = false;
 let unsubscribeFirebase = null;
+let unsubscribeFolders = null;
 
 // DOM Elements
 const elements = {
@@ -104,7 +109,35 @@ const elements = {
 
     // Sync status
     syncStatus: document.getElementById('syncStatus'),
-    syncStatusText: document.querySelector('.sync-status-text')
+    syncStatusText: document.querySelector('.sync-status-text'),
+
+    // Profile
+    profileBtn: document.getElementById('profileBtn'),
+    profileAvatar: document.getElementById('profileAvatar'),
+    profileName: document.getElementById('profileName'),
+    profileModal: document.getElementById('profileModal'),
+    profileModalBackdrop: document.getElementById('profileModalBackdrop'),
+    closeProfileModalBtn: document.getElementById('closeProfileModalBtn'),
+    signedOutState: document.getElementById('signedOutState'),
+    signedInState: document.getElementById('signedInState'),
+    googleSignInBtn: document.getElementById('googleSignInBtn'),
+    signOutBtn: document.getElementById('signOutBtn'),
+    profileModalAvatar: document.getElementById('profileModalAvatar'),
+    profileModalName: document.getElementById('profileModalName'),
+    profileModalEmail: document.getElementById('profileModalEmail'),
+
+    // Folders
+    foldersList: document.getElementById('foldersList'),
+    addFolderBtn: document.getElementById('addFolderBtn'),
+    folderModal: document.getElementById('folderModal'),
+    folderModalBackdrop: document.getElementById('folderModalBackdrop'),
+    closeFolderModalBtn: document.getElementById('closeFolderModalBtn'),
+    folderModalTitle: document.getElementById('folderModalTitle'),
+    folderNameInput: document.getElementById('folderNameInput'),
+    saveFolderBtn: document.getElementById('saveFolderBtn'),
+    deleteFolderBtn: document.getElementById('deleteFolderBtn'),
+    manualFolder: document.getElementById('manualFolder'),
+    editFolder: document.getElementById('editFolder')
 };
 
 // ============================================
@@ -231,21 +264,22 @@ async function extractRecipeWithClaude(text, sourceUrl = '') {
 Return a JSON object with exactly this structure:
 {
   "title": "Recipe Name",
-  "servings": "4 people" or "6 servings" or "12 cookies" (whatever is appropriate),
-  "ingredients": ["ingredient 1", "ingredient 2", ...],
-  "instructions": ["step 1", "step 2", ...],
-  "notes": "any tips or notes (optional, can be empty string)"
+  "servings": "4 servings",
+  "ingredients": ["ingredient 1", "ingredient 2"],
+  "instructions": ["step 1", "step 2"],
+  "notes": "any tips or notes"
 }
 
 IMPORTANT RULES:
 1. Convert ALL measurements to metric (cups to ml, oz to grams, F to C, etc.)
-2. Each ingredient should be on its own line with quantity and item
+2. Each ingredient should be a single line with quantity and item
 3. Each instruction should be a complete step, not fragments
 4. Remove any step numbers from instructions (just the text)
-5. Extract the servings/yield if mentioned (e.g. "serves 4", "makes 12 cookies", "4 portions")
-6. If servings is not found, use an empty string ""
+5. CRITICAL: Extract the servings/yield - look for "serves X", "makes X", "X servings", "X portions", "yield: X", "for X people". Format as "X servings" or "Makes X cookies" etc.
+6. If servings is not explicitly stated, try to infer from context or use ""
 7. Ignore prep time, cook time, ratings, comments, author info
 8. If you can't find a valid recipe, return {"error": "No recipe found"}
+9. Return ONLY the JSON object, no other text
 
 TEXT TO EXTRACT FROM:
 ${text.substring(0, 15000)}`;
@@ -989,11 +1023,21 @@ function generateId() {
 }
 
 // Firebase sync functions
+function getRecipesPath() {
+    // If user is logged in, use user-specific path
+    if (currentUser) {
+        return ['users', currentUser.uid, 'recipes'];
+    }
+    // Otherwise use shared recipes collection (for backwards compatibility)
+    return ['recipes'];
+}
+
 async function syncRecipeToFirebase(recipe) {
     if (!firebaseReady || !window.firebaseDb) return;
 
     try {
-        const docRef = window.firebaseDoc(window.firebaseDb, 'recipes', recipe.id);
+        const path = getRecipesPath();
+        const docRef = window.firebaseDoc(window.firebaseDb, ...path, recipe.id);
         await window.firebaseSetDoc(docRef, recipe);
         console.log('Recipe synced to Firebase:', recipe.id);
     } catch (error) {
@@ -1005,7 +1049,8 @@ async function deleteRecipeFromFirebase(id) {
     if (!firebaseReady || !window.firebaseDb) return;
 
     try {
-        const docRef = window.firebaseDoc(window.firebaseDb, 'recipes', id);
+        const path = getRecipesPath();
+        const docRef = window.firebaseDoc(window.firebaseDb, ...path, id);
         await window.firebaseDeleteDoc(docRef);
         console.log('Recipe deleted from Firebase:', id);
     } catch (error) {
@@ -1029,8 +1074,14 @@ function setupFirebaseListener() {
         return;
     }
 
+    // Unsubscribe from previous listener if exists
+    if (unsubscribeFirebase) {
+        unsubscribeFirebase();
+    }
+
     try {
-        const recipesRef = window.firebaseCollection(window.firebaseDb, 'recipes');
+        const path = getRecipesPath();
+        const recipesRef = window.firebaseCollection(window.firebaseDb, ...path);
         const q = window.firebaseQuery(recipesRef, window.firebaseOrderBy('createdAt', 'desc'));
 
         unsubscribeFirebase = window.firebaseOnSnapshot(q, (snapshot) => {
@@ -1127,6 +1178,263 @@ function getRecipe(id) {
 }
 
 // ============================================
+// Folders Management
+// ============================================
+
+function loadFolders() {
+    try {
+        const data = localStorage.getItem(FOLDERS_STORAGE);
+        folders = data ? JSON.parse(data) : [];
+    } catch (e) {
+        folders = [];
+    }
+}
+
+function saveFolders() {
+    localStorage.setItem(FOLDERS_STORAGE, JSON.stringify(folders));
+}
+
+async function syncFolderToFirebase(folder) {
+    if (!firebaseReady || !window.firebaseDb || !currentUser) return;
+
+    try {
+        const docRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid, 'folders', folder.id);
+        await window.firebaseSetDoc(docRef, folder);
+    } catch (error) {
+        console.error('Error syncing folder to Firebase:', error);
+    }
+}
+
+async function deleteFolderFromFirebase(id) {
+    if (!firebaseReady || !window.firebaseDb || !currentUser) return;
+
+    try {
+        const docRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid, 'folders', id);
+        await window.firebaseDeleteDoc(docRef);
+    } catch (error) {
+        console.error('Error deleting folder from Firebase:', error);
+    }
+}
+
+function addFolder(name) {
+    const folder = {
+        id: generateId(),
+        name: name.trim(),
+        createdAt: new Date().toISOString()
+    };
+    folders.push(folder);
+    saveFolders();
+    syncFolderToFirebase(folder);
+    return folder;
+}
+
+function updateFolder(id, name) {
+    const folder = folders.find(f => f.id === id);
+    if (folder) {
+        folder.name = name.trim();
+        folder.updatedAt = new Date().toISOString();
+        saveFolders();
+        syncFolderToFirebase(folder);
+        return folder;
+    }
+    return null;
+}
+
+function deleteFolder(id) {
+    const index = folders.findIndex(f => f.id === id);
+    if (index !== -1) {
+        folders.splice(index, 1);
+        saveFolders();
+        deleteFolderFromFirebase(id);
+
+        // Remove folder from recipes
+        recipes.forEach(recipe => {
+            if (recipe.folderId === id) {
+                recipe.folderId = '';
+                syncRecipeToFirebase(recipe);
+            }
+        });
+        saveRecipes();
+
+        return true;
+    }
+    return false;
+}
+
+function renderFoldersList() {
+    const allRecipesCount = recipes.length;
+
+    let html = `
+        <button class="folder-item ${currentFolderId === 'all' ? 'active' : ''}" data-folder="all">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            All Recipes
+            <span class="folder-count">${allRecipesCount}</span>
+        </button>
+    `;
+
+    folders.forEach(folder => {
+        const count = recipes.filter(r => r.folderId === folder.id).length;
+        html += `
+            <button class="folder-item ${currentFolderId === folder.id ? 'active' : ''}" data-folder="${folder.id}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                ${escapeHtml(folder.name)}
+                <span class="folder-count">${count}</span>
+            </button>
+        `;
+    });
+
+    elements.foldersList.innerHTML = html;
+
+    // Add click handlers
+    elements.foldersList.querySelectorAll('.folder-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentFolderId = btn.dataset.folder;
+            renderFoldersList();
+            renderRecipeList(elements.searchInput.value);
+        });
+
+        // Long press or right-click to edit folder (not "all")
+        if (btn.dataset.folder !== 'all') {
+            btn.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                openEditFolderModal(btn.dataset.folder);
+            });
+        }
+    });
+}
+
+function updateFolderSelects() {
+    const options = '<option value="">No folder</option>' +
+        folders.map(f => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('');
+
+    if (elements.manualFolder) elements.manualFolder.innerHTML = options;
+    if (elements.editFolder) elements.editFolder.innerHTML = options;
+}
+
+function openEditFolderModal(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    elements.folderModalTitle.textContent = 'Edit Folder';
+    elements.folderNameInput.value = folder.name;
+    elements.folderNameInput.dataset.editId = folderId;
+    elements.deleteFolderBtn.style.display = 'block';
+    openModal(elements.folderModal);
+}
+
+// ============================================
+// Auth Functions
+// ============================================
+
+function updateAuthUI() {
+    if (currentUser) {
+        // Signed in
+        elements.profileName.textContent = currentUser.displayName || currentUser.email;
+
+        if (currentUser.photoURL) {
+            elements.profileAvatar.innerHTML = `<img src="${currentUser.photoURL}" alt="Profile">`;
+        }
+
+        elements.signedOutState.style.display = 'none';
+        elements.signedInState.style.display = 'block';
+        elements.profileModalAvatar.src = currentUser.photoURL || '';
+        elements.profileModalName.textContent = currentUser.displayName || 'User';
+        elements.profileModalEmail.textContent = currentUser.email;
+    } else {
+        // Signed out
+        elements.profileName.textContent = 'Sign In';
+        elements.profileAvatar.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+        `;
+        elements.signedOutState.style.display = 'block';
+        elements.signedInState.style.display = 'none';
+    }
+}
+
+async function signInWithGoogle() {
+    if (!window.firebaseAuth || !window.firebaseGoogleProvider) {
+        showToast('Authentication not available', 'error');
+        return;
+    }
+
+    try {
+        const result = await window.firebaseSignInWithPopup(window.firebaseAuth, window.firebaseGoogleProvider);
+        currentUser = result.user;
+        showToast(`Welcome, ${currentUser.displayName || 'User'}!`);
+        closeModal(elements.profileModal);
+
+        // Re-setup Firebase listeners for this user
+        setupFirebaseListener();
+        setupFoldersListener();
+    } catch (error) {
+        console.error('Sign in error:', error);
+        showToast('Sign in failed: ' + error.message, 'error');
+    }
+}
+
+async function signOutUser() {
+    if (!window.firebaseAuth) return;
+
+    try {
+        await window.firebaseSignOut(window.firebaseAuth);
+        currentUser = null;
+
+        // Unsubscribe from user-specific listeners
+        if (unsubscribeFirebase) unsubscribeFirebase();
+        if (unsubscribeFolders) unsubscribeFolders();
+
+        // Clear and reload local data
+        recipes = [];
+        folders = [];
+        loadRecipes();
+        loadFolders();
+
+        renderRecipeList();
+        renderFoldersList();
+        updateAuthUI();
+
+        showToast('Signed out');
+        closeModal(elements.profileModal);
+    } catch (error) {
+        console.error('Sign out error:', error);
+        showToast('Sign out failed', 'error');
+    }
+}
+
+function setupFoldersListener() {
+    if (!window.firebaseDb || !currentUser) return;
+
+    try {
+        const foldersRef = window.firebaseCollection(window.firebaseDb, 'users', currentUser.uid, 'folders');
+        const q = window.firebaseQuery(foldersRef, window.firebaseOrderBy('createdAt', 'asc'));
+
+        unsubscribeFolders = window.firebaseOnSnapshot(q, (snapshot) => {
+            const firebaseFolders = [];
+            snapshot.forEach((doc) => {
+                firebaseFolders.push(doc.data());
+            });
+
+            folders = firebaseFolders;
+            saveFolders();
+            renderFoldersList();
+            updateFolderSelects();
+        }, (error) => {
+            console.error('Folders listener error:', error);
+        });
+    } catch (error) {
+        console.error('Error setting up folders listener:', error);
+    }
+}
+
+// ============================================
 // UI Functions
 // ============================================
 
@@ -1143,13 +1451,26 @@ function showToast(message, type = 'success') {
 }
 
 function renderRecipeList(filter = '') {
-    const filteredRecipes = filter
+    // Filter by search term
+    let filteredRecipes = filter
         ? recipes.filter(r => r.title.toLowerCase().includes(filter.toLowerCase()))
         : recipes;
+
+    // Filter by folder
+    if (currentFolderId !== 'all') {
+        filteredRecipes = filteredRecipes.filter(r => r.folderId === currentFolderId);
+    }
 
     if (filteredRecipes.length === 0 && recipes.length === 0) {
         elements.recipeList.innerHTML = '';
         elements.emptyState.style.display = 'flex';
+        elements.recipeDetail.style.display = 'none';
+        return;
+    }
+
+    if (filteredRecipes.length === 0) {
+        elements.recipeList.innerHTML = '<div class="empty-folder">No recipes in this folder</div>';
+        elements.emptyState.style.display = 'none';
         elements.recipeDetail.style.display = 'none';
         return;
     }
@@ -1278,6 +1599,66 @@ function setupEventListeners() {
     elements.syncModalBackdrop.addEventListener('click', () => closeModal(elements.syncModal));
     elements.closeSettingsModalBtn.addEventListener('click', () => closeModal(elements.settingsModal));
     elements.settingsModalBackdrop.addEventListener('click', () => closeModal(elements.settingsModal));
+    elements.closeProfileModalBtn?.addEventListener('click', () => closeModal(elements.profileModal));
+    elements.profileModalBackdrop?.addEventListener('click', () => closeModal(elements.profileModal));
+    elements.closeFolderModalBtn?.addEventListener('click', () => closeModal(elements.folderModal));
+    elements.folderModalBackdrop?.addEventListener('click', () => closeModal(elements.folderModal));
+
+    // Profile button
+    elements.profileBtn?.addEventListener('click', () => {
+        openModal(elements.profileModal);
+    });
+
+    // Google Sign In
+    elements.googleSignInBtn?.addEventListener('click', signInWithGoogle);
+
+    // Sign Out
+    elements.signOutBtn?.addEventListener('click', signOutUser);
+
+    // Add folder button
+    elements.addFolderBtn?.addEventListener('click', () => {
+        elements.folderModalTitle.textContent = 'New Folder';
+        elements.folderNameInput.value = '';
+        elements.folderNameInput.dataset.editId = '';
+        elements.deleteFolderBtn.style.display = 'none';
+        openModal(elements.folderModal);
+    });
+
+    // Save folder
+    elements.saveFolderBtn?.addEventListener('click', () => {
+        const name = elements.folderNameInput.value.trim();
+        if (!name) {
+            showToast('Please enter a folder name', 'error');
+            return;
+        }
+
+        const editId = elements.folderNameInput.dataset.editId;
+        if (editId) {
+            updateFolder(editId, name);
+            showToast('Folder updated');
+        } else {
+            addFolder(name);
+            showToast('Folder created');
+        }
+
+        closeModal(elements.folderModal);
+        renderFoldersList();
+        updateFolderSelects();
+    });
+
+    // Delete folder
+    elements.deleteFolderBtn?.addEventListener('click', () => {
+        const editId = elements.folderNameInput.dataset.editId;
+        if (editId && confirm('Delete this folder? Recipes in it will be moved to "All Recipes".')) {
+            deleteFolder(editId);
+            currentFolderId = 'all';
+            closeModal(elements.folderModal);
+            renderFoldersList();
+            renderRecipeList();
+            updateFolderSelects();
+            showToast('Folder deleted');
+        }
+    });
 
     // Settings button
     elements.settingsBtn.addEventListener('click', () => {
@@ -1487,7 +1868,8 @@ function setupEventListeners() {
             ingredients,
             instructions,
             source: elements.manualSource.value.trim() || '',
-            notes: elements.manualNotes.value.trim() || ''
+            notes: elements.manualNotes.value.trim() || '',
+            folderId: elements.manualFolder?.value || ''
         };
 
         const recipe = addRecipe(recipeData);
@@ -1500,7 +1882,9 @@ function setupEventListeners() {
         elements.manualInstructions.value = '';
         elements.manualSource.value = '';
         elements.manualNotes.value = '';
+        if (elements.manualFolder) elements.manualFolder.value = '';
 
+        renderFoldersList();
         renderRecipeList();
         selectRecipe(recipe.id);
         showToast('Recipe added successfully!');
@@ -1512,6 +1896,7 @@ function setupEventListeners() {
         if (!recipe) return;
 
         elements.editTitle.value = recipe.title;
+        if (elements.editFolder) elements.editFolder.value = recipe.folderId || '';
         elements.editServings.value = recipe.servings || '';
         elements.editIngredients.value = recipe.ingredients.join('\n');
         elements.editInstructions.value = recipe.instructions.join('\n');
@@ -1535,11 +1920,13 @@ function setupEventListeners() {
             ingredients: elements.editIngredients.value.split('\n').map(l => l.trim()).filter(Boolean),
             instructions: elements.editInstructions.value.split('\n').map(l => l.trim()).filter(Boolean),
             source: elements.editSource.value.trim(),
-            notes: elements.editNotes.value.trim()
+            notes: elements.editNotes.value.trim(),
+            folderId: elements.editFolder?.value || ''
         };
 
         updateRecipe(currentRecipeId, updates);
         closeModal(elements.editModal);
+        renderFoldersList();
         renderRecipeList();
         selectRecipe(currentRecipeId);
         showToast('Recipe updated!');
@@ -1765,13 +2152,16 @@ function init() {
     // Load API key
     claudeApiKey = localStorage.getItem(API_KEY_STORAGE);
 
-    // Load recipes
+    // Load recipes and folders
     loadRecipes();
+    loadFolders();
 
     // Setup event listeners
     setupEventListeners();
 
     // Initial render
+    renderFoldersList();
+    updateFolderSelects();
     renderRecipeList();
 
     // Select first recipe if available
@@ -1792,8 +2182,27 @@ document.addEventListener('DOMContentLoaded', init);
 
 // Initialize Firebase when ready
 window.addEventListener('firebase-ready', () => {
-    console.log('Firebase SDK loaded, setting up listener...');
-    setupFirebaseListener();
+    console.log('Firebase SDK loaded');
+
+    // Set up auth state listener
+    if (window.firebaseOnAuthStateChanged && window.firebaseAuth) {
+        window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
+            currentUser = user;
+            updateAuthUI();
+
+            if (user) {
+                console.log('User signed in:', user.email);
+                setupFirebaseListener();
+                setupFoldersListener();
+            } else {
+                console.log('User signed out, using shared recipes');
+                setupFirebaseListener();
+            }
+        });
+    } else {
+        // No auth available, just set up shared listener
+        setupFirebaseListener();
+    }
 
     // Sync any existing local recipes to Firebase (one-time migration)
     if (recipes.length > 0 && !localStorage.getItem('firebaseMigrated')) {

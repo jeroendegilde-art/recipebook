@@ -13,6 +13,22 @@
     <div class="app">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
+            <!-- Profile section -->
+            <div class="profile-section" id="profileSection">
+                <button class="profile-btn" id="profileBtn">
+                    <div class="profile-avatar" id="profileAvatar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </div>
+                    <span class="profile-name" id="profileName">Sign In</span>
+                    <svg class="profile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+            </div>
+
             <div class="sidebar-header">
                 <h1>Recipe Book</h1>
                 <button class="btn-icon" id="toggleTheme" title="Toggle theme">
@@ -41,6 +57,27 @@
                     <path d="M21 21l-4.35-4.35"></path>
                 </svg>
                 <input type="text" id="searchInput" placeholder="Search recipes...">
+            </div>
+
+            <!-- Folders section -->
+            <div class="folders-section" id="foldersSection">
+                <div class="folders-header">
+                    <span>Folders</span>
+                    <button class="btn-icon btn-small" id="addFolderBtn" title="Add folder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="folders-list" id="foldersList">
+                    <button class="folder-item active" data-folder="all">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                        All Recipes
+                    </button>
+                </div>
             </div>
 
             <nav class="recipe-list" id="recipeList">
@@ -241,6 +278,12 @@
                         <label for="manualNotes">Notes (optional)</label>
                         <textarea id="manualNotes" rows="3" placeholder="Any tips or modifications..."></textarea>
                     </div>
+                    <div class="form-group">
+                        <label for="manualFolder">Folder</label>
+                        <select id="manualFolder">
+                            <option value="">No folder</option>
+                        </select>
+                    </div>
                     <button class="btn btn-primary btn-full" id="saveManualBtn">Save Recipe</button>
                 </div>
             </div>
@@ -284,6 +327,12 @@
                 <div class="form-group">
                     <label for="editNotes">Notes</label>
                     <textarea id="editNotes" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editFolder">Folder</label>
+                    <select id="editFolder">
+                        <option value="">No folder</option>
+                    </select>
                 </div>
                 <button class="btn btn-primary btn-full" id="saveEditBtn">Save Changes</button>
             </div>
@@ -365,13 +414,78 @@
         </div>
     </div>
 
+    <!-- Folder Modal -->
+    <div class="modal" id="folderModal">
+        <div class="modal-backdrop" id="folderModalBackdrop"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2 id="folderModalTitle">New Folder</h2>
+                <button class="btn-icon" id="closeFolderModalBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="folderNameInput">Folder Name</label>
+                    <input type="text" id="folderNameInput" placeholder="e.g. Desserts, Main Courses...">
+                </div>
+                <button class="btn btn-primary btn-full" id="saveFolderBtn">Save Folder</button>
+                <button class="btn btn-danger btn-full" id="deleteFolderBtn" style="display: none; margin-top: 8px;">Delete Folder</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal" id="profileModal">
+        <div class="modal-backdrop" id="profileModalBackdrop"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Profile</h2>
+                <button class="btn-icon" id="closeProfileModalBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Not signed in state -->
+                <div id="signedOutState">
+                    <p class="sync-info">Sign in to sync your recipes across devices and keep them private to your account.</p>
+                    <button class="btn btn-primary btn-full" id="googleSignInBtn">
+                        <svg viewBox="0 0 24 24" width="18" height="18" style="margin-right: 8px;">
+                            <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                            <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        Sign in with Google
+                    </button>
+                </div>
+                <!-- Signed in state -->
+                <div id="signedInState" style="display: none;">
+                    <div class="profile-info">
+                        <img id="profileModalAvatar" class="profile-modal-avatar" src="" alt="Profile">
+                        <div class="profile-details">
+                            <div class="profile-modal-name" id="profileModalName"></div>
+                            <div class="profile-modal-email" id="profileModalEmail"></div>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary btn-full" id="signOutBtn">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast notifications -->
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         // Firebase configuration
         const firebaseConfig = {
@@ -387,9 +501,16 @@
             // Initialize Firebase
             const app = initializeApp(firebaseConfig);
             const db = getFirestore(app);
+            const auth = getAuth(app);
+            const googleProvider = new GoogleAuthProvider();
 
             // Make Firebase available globally for app.js
             window.firebaseDb = db;
+            window.firebaseAuth = auth;
+            window.firebaseGoogleProvider = googleProvider;
+            window.firebaseSignInWithPopup = signInWithPopup;
+            window.firebaseSignOut = signOut;
+            window.firebaseOnAuthStateChanged = onAuthStateChanged;
             window.firebaseCollection = collection;
             window.firebaseDoc = doc;
             window.firebaseSetDoc = setDoc;
@@ -397,6 +518,7 @@
             window.firebaseOnSnapshot = onSnapshot;
             window.firebaseQuery = query;
             window.firebaseOrderBy = orderBy;
+            window.firebaseWhere = where;
 
             console.log('Firebase initialized successfully');
 
