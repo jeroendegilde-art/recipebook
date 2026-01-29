@@ -16,6 +16,7 @@ let claudeApiKey = null;
 let firebaseReady = false;
 let unsubscribeFirebase = null;
 let unsubscribeFolders = null;
+let unsubscribeUserSettings = null;
 
 // DOM Elements
 const elements = {
@@ -137,7 +138,13 @@ const elements = {
     saveFolderBtn: document.getElementById('saveFolderBtn'),
     deleteFolderBtn: document.getElementById('deleteFolderBtn'),
     manualFolder: document.getElementById('manualFolder'),
-    editFolder: document.getElementById('editFolder')
+    editFolder: document.getElementById('editFolder'),
+
+    // Login screen
+    loginScreen: document.getElementById('loginScreen'),
+    loginGoogleBtn: document.getElementById('loginGoogleBtn'),
+    loginHint: document.getElementById('loginHint'),
+    app: document.getElementById('app')
 };
 
 // ============================================
@@ -1331,9 +1338,21 @@ function openEditFolderModal(folderId) {
 // Auth Functions
 // ============================================
 
+function showLoginScreen() {
+    elements.loginScreen.style.display = 'flex';
+    elements.app.style.display = 'none';
+}
+
+function hideLoginScreen() {
+    elements.loginScreen.style.display = 'none';
+    elements.app.style.display = 'flex';
+}
+
 function updateAuthUI() {
     if (currentUser) {
-        // Signed in
+        // Signed in - hide login, show app
+        hideLoginScreen();
+
         elements.profileName.textContent = currentUser.displayName || currentUser.email;
 
         if (currentUser.photoURL) {
@@ -1346,7 +1365,9 @@ function updateAuthUI() {
         elements.profileModalName.textContent = currentUser.displayName || 'User';
         elements.profileModalEmail.textContent = currentUser.email;
     } else {
-        // Signed out
+        // Signed out - show login screen
+        showLoginScreen();
+
         elements.profileName.textContent = 'Sign In';
         elements.profileAvatar.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1359,24 +1380,80 @@ function updateAuthUI() {
     }
 }
 
+// Save API key to Firebase user settings
+async function saveApiKeyToFirebase(apiKey) {
+    if (!currentUser || !window.firebaseDb) return;
+
+    try {
+        const docRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid, 'settings', 'apiKey');
+        await window.firebaseSetDoc(docRef, {
+            claudeApiKey: apiKey,
+            updatedAt: new Date().toISOString()
+        });
+        console.log('API key saved to Firebase');
+    } catch (error) {
+        console.error('Error saving API key to Firebase:', error);
+    }
+}
+
+// Load API key from Firebase user settings
+function setupUserSettingsListener() {
+    if (!currentUser || !window.firebaseDb) return;
+
+    try {
+        const docRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid, 'settings', 'apiKey');
+
+        unsubscribeUserSettings = window.firebaseOnSnapshot(docRef, (doc) => {
+            if (doc.exists()) {
+                const data = doc.data();
+                if (data.claudeApiKey) {
+                    claudeApiKey = data.claudeApiKey;
+                    localStorage.setItem(API_KEY_STORAGE, claudeApiKey);
+                    console.log('API key loaded from Firebase');
+
+                    // Update the settings modal if open
+                    if (elements.apiKeyInput) {
+                        elements.apiKeyInput.value = claudeApiKey;
+                    }
+                }
+            }
+        }, (error) => {
+            console.error('Error loading user settings:', error);
+        });
+    } catch (error) {
+        console.error('Error setting up user settings listener:', error);
+    }
+}
+
 async function signInWithGoogle() {
     if (!window.firebaseAuth || !window.firebaseGoogleProvider) {
-        showToast('Authentication not available', 'error');
+        elements.loginHint.textContent = 'Authentication not available. Please try again later.';
+        elements.loginHint.classList.add('error');
         return;
     }
+
+    elements.loginGoogleBtn.disabled = true;
+    elements.loginGoogleBtn.textContent = 'Signing in...';
+    elements.loginHint.textContent = '';
 
     try {
         const result = await window.firebaseSignInWithPopup(window.firebaseAuth, window.firebaseGoogleProvider);
         currentUser = result.user;
-        showToast(`Welcome, ${currentUser.displayName || 'User'}!`);
-        closeModal(elements.profileModal);
-
-        // Re-setup Firebase listeners for this user
-        setupFirebaseListener();
-        setupFoldersListener();
+        // Auth state change will handle the rest
     } catch (error) {
         console.error('Sign in error:', error);
-        showToast('Sign in failed: ' + error.message, 'error');
+        elements.loginHint.textContent = 'Sign in failed: ' + error.message;
+        elements.loginHint.classList.add('error');
+        elements.loginGoogleBtn.disabled = false;
+        elements.loginGoogleBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Sign in with Google
+        `;
     }
 }
 
@@ -1390,18 +1467,15 @@ async function signOutUser() {
         // Unsubscribe from user-specific listeners
         if (unsubscribeFirebase) unsubscribeFirebase();
         if (unsubscribeFolders) unsubscribeFolders();
+        if (unsubscribeUserSettings) unsubscribeUserSettings();
 
-        // Clear and reload local data
+        // Clear data
         recipes = [];
         folders = [];
-        loadRecipes();
-        loadFolders();
+        claudeApiKey = null;
 
-        renderRecipeList();
-        renderFoldersList();
-        updateAuthUI();
-
-        showToast('Signed out');
+        // Show login screen
+        showLoginScreen();
         closeModal(elements.profileModal);
     } catch (error) {
         console.error('Sign out error:', error);
@@ -1660,6 +1734,9 @@ function setupEventListeners() {
         }
     });
 
+    // Login screen Google button
+    elements.loginGoogleBtn?.addEventListener('click', signInWithGoogle);
+
     // Settings button
     elements.settingsBtn.addEventListener('click', () => {
         // Load current API key (masked)
@@ -1674,17 +1751,25 @@ function setupEventListeners() {
     });
 
     // Save settings
-    elements.saveSettingsBtn.addEventListener('click', () => {
+    elements.saveSettingsBtn.addEventListener('click', async () => {
         const apiKey = elements.apiKeyInput.value.trim();
 
         if (apiKey) {
             claudeApiKey = apiKey;
             localStorage.setItem(API_KEY_STORAGE, apiKey);
-            elements.apiStatus.innerHTML = '<span style="color: var(--success);">✓ API key saved!</span>';
-            showToast('API key saved! AI extraction is now enabled.');
+
+            // Save to Firebase for cross-device sync
+            await saveApiKeyToFirebase(apiKey);
+
+            elements.apiStatus.innerHTML = '<span style="color: var(--success);">✓ API key saved and synced!</span>';
+            showToast('API key saved! It will sync across your devices.');
         } else {
             claudeApiKey = null;
             localStorage.removeItem(API_KEY_STORAGE);
+
+            // Remove from Firebase too
+            await saveApiKeyToFirebase('');
+
             elements.apiStatus.innerHTML = '<span style="color: var(--text-muted);">API key removed</span>';
             showToast('API key removed.');
         }
@@ -2149,31 +2234,21 @@ function init() {
         document.documentElement.setAttribute('data-theme', savedTheme);
     }
 
-    // Load API key
+    // Load API key from local storage (will be overwritten by Firebase if logged in)
     claudeApiKey = localStorage.getItem(API_KEY_STORAGE);
-
-    // Load recipes and folders
-    loadRecipes();
-    loadFolders();
 
     // Setup event listeners
     setupEventListeners();
 
-    // Initial render
-    renderFoldersList();
-    updateFolderSelects();
-    renderRecipeList();
+    // Show login screen by default (Firebase auth will handle showing app)
+    showLoginScreen();
+}
 
-    // Select first recipe if available
-    if (recipes.length > 0) {
-        selectRecipe(recipes[0].id);
-    }
-
-    // Show hint if no API key
+function showApiKeyHint() {
     if (!claudeApiKey) {
         setTimeout(() => {
             showToast('Tip: Add your Claude API key in Settings for better recipe extraction', 'info');
-        }, 2000);
+        }, 3000);
     }
 }
 
@@ -2194,21 +2269,28 @@ window.addEventListener('firebase-ready', () => {
                 console.log('User signed in:', user.email);
                 setupFirebaseListener();
                 setupFoldersListener();
+                setupUserSettingsListener();
+
+                // Initialize app after login
+                renderFoldersList();
+                updateFolderSelects();
+                renderRecipeList();
+
+                if (recipes.length > 0) {
+                    selectRecipe(recipes[0].id);
+                }
+
+                // Show hint about API key if not set
+                showApiKeyHint();
             } else {
-                console.log('User signed out, using shared recipes');
-                setupFirebaseListener();
+                console.log('User signed out');
+                // Login screen is shown by updateAuthUI
             }
         });
     } else {
-        // No auth available, just set up shared listener
-        setupFirebaseListener();
-    }
-
-    // Sync any existing local recipes to Firebase (one-time migration)
-    if (recipes.length > 0 && !localStorage.getItem('firebaseMigrated')) {
-        console.log('Migrating local recipes to Firebase...');
-        recipes.forEach(recipe => syncRecipeToFirebase(recipe));
-        localStorage.setItem('firebaseMigrated', 'true');
+        // No auth available - still require login
+        console.log('Auth not available');
+        showLoginScreen();
     }
 });
 
