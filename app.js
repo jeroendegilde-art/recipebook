@@ -1040,28 +1040,48 @@ function getRecipesPath() {
 }
 
 async function syncRecipeToFirebase(recipe) {
-    if (!firebaseReady || !window.firebaseDb) return;
+    if (!window.firebaseDb) {
+        console.log('Firebase not available, skipping sync');
+        return;
+    }
+
+    if (!currentUser) {
+        console.log('No user logged in, skipping sync');
+        return;
+    }
 
     try {
         const path = getRecipesPath();
+        console.log('Syncing recipe to path:', path.join('/'), recipe.id);
         const docRef = window.firebaseDoc(window.firebaseDb, ...path, recipe.id);
         await window.firebaseSetDoc(docRef, recipe);
         console.log('Recipe synced to Firebase:', recipe.id);
     } catch (error) {
         console.error('Error syncing recipe to Firebase:', error);
+        showToast('Failed to sync recipe: ' + error.message, 'error');
     }
 }
 
 async function deleteRecipeFromFirebase(id) {
-    if (!firebaseReady || !window.firebaseDb) return;
+    if (!window.firebaseDb) {
+        console.log('Firebase not available, skipping delete');
+        return;
+    }
+
+    if (!currentUser) {
+        console.log('No user logged in, skipping delete');
+        return;
+    }
 
     try {
         const path = getRecipesPath();
+        console.log('Deleting recipe from path:', path.join('/'), id);
         const docRef = window.firebaseDoc(window.firebaseDb, ...path, id);
         await window.firebaseDeleteDoc(docRef);
         console.log('Recipe deleted from Firebase:', id);
     } catch (error) {
         console.error('Error deleting recipe from Firebase:', error);
+        showToast('Failed to delete recipe: ' + error.message, 'error');
     }
 }
 
@@ -1081,15 +1101,28 @@ function setupFirebaseListener() {
         return;
     }
 
+    if (!currentUser) {
+        console.log('No user logged in, cannot setup Firebase listener');
+        updateSyncStatus(false, 'Not signed in');
+        return;
+    }
+
     // Unsubscribe from previous listener if exists
     if (unsubscribeFirebase) {
         unsubscribeFirebase();
+        unsubscribeFirebase = null;
     }
 
     try {
         const path = getRecipesPath();
+        console.log('Setting up Firebase listener for path:', path.join('/'));
+
         const recipesRef = window.firebaseCollection(window.firebaseDb, ...path);
         const q = window.firebaseQuery(recipesRef, window.firebaseOrderBy('createdAt', 'desc'));
+
+        // Set firebaseReady immediately so syncing can happen
+        firebaseReady = true;
+        updateSyncStatus(true, 'Connecting...');
 
         unsubscribeFirebase = window.firebaseOnSnapshot(q, (snapshot) => {
             const firebaseRecipes = [];
@@ -1126,13 +1159,14 @@ function setupFirebaseListener() {
             console.log('Recipes synced from Firebase:', firebaseRecipes.length);
         }, (error) => {
             console.error('Firebase listener error:', error);
+            firebaseReady = false;
             updateSyncStatus(false, 'Sync error');
-            showToast('Sync error. Using local data.', 'error');
+            showToast('Sync error: ' + error.message, 'error');
         });
 
-        firebaseReady = true;
     } catch (error) {
         console.error('Error setting up Firebase listener:', error);
+        firebaseReady = false;
         updateSyncStatus(false, 'Connection failed');
     }
 }
@@ -1202,22 +1236,32 @@ function saveFolders() {
 }
 
 async function syncFolderToFirebase(folder) {
-    if (!firebaseReady || !window.firebaseDb || !currentUser) return;
+    if (!window.firebaseDb || !currentUser) {
+        console.log('Cannot sync folder: Firebase or user not available');
+        return;
+    }
 
     try {
+        console.log('Syncing folder to Firebase:', folder.name);
         const docRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid, 'folders', folder.id);
         await window.firebaseSetDoc(docRef, folder);
+        console.log('Folder synced successfully');
     } catch (error) {
         console.error('Error syncing folder to Firebase:', error);
     }
 }
 
 async function deleteFolderFromFirebase(id) {
-    if (!firebaseReady || !window.firebaseDb || !currentUser) return;
+    if (!window.firebaseDb || !currentUser) {
+        console.log('Cannot delete folder: Firebase or user not available');
+        return;
+    }
 
     try {
+        console.log('Deleting folder from Firebase:', id);
         const docRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid, 'folders', id);
         await window.firebaseDeleteDoc(docRef);
+        console.log('Folder deleted successfully');
     } catch (error) {
         console.error('Error deleting folder from Firebase:', error);
     }
