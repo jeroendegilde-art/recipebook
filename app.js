@@ -9,6 +9,8 @@ const API_KEY_STORAGE = 'recipeBookApiKey';
 let recipes = [];
 let currentRecipeId = null;
 let claudeApiKey = null;
+let firebaseReady = false;
+let unsubscribeFirebase = null;
 
 // DOM Elements
 const elements = {
@@ -98,7 +100,11 @@ const elements = {
     apiStatus: document.getElementById('apiStatus'),
 
     // Toast
-    toastContainer: document.getElementById('toastContainer')
+    toastContainer: document.getElementById('toastContainer'),
+
+    // Sync status
+    syncStatus: document.getElementById('syncStatus'),
+    syncStatusText: document.querySelector('.sync-status-text')
 };
 
 // ============================================
@@ -982,6 +988,97 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
+// Firebase sync functions
+async function syncRecipeToFirebase(recipe) {
+    if (!firebaseReady || !window.firebaseDb) return;
+
+    try {
+        const docRef = window.firebaseDoc(window.firebaseDb, 'recipes', recipe.id);
+        await window.firebaseSetDoc(docRef, recipe);
+        console.log('Recipe synced to Firebase:', recipe.id);
+    } catch (error) {
+        console.error('Error syncing recipe to Firebase:', error);
+    }
+}
+
+async function deleteRecipeFromFirebase(id) {
+    if (!firebaseReady || !window.firebaseDb) return;
+
+    try {
+        const docRef = window.firebaseDoc(window.firebaseDb, 'recipes', id);
+        await window.firebaseDeleteDoc(docRef);
+        console.log('Recipe deleted from Firebase:', id);
+    } catch (error) {
+        console.error('Error deleting recipe from Firebase:', error);
+    }
+}
+
+function updateSyncStatus(connected, message) {
+    if (elements.syncStatus) {
+        elements.syncStatus.classList.remove('connected', 'disconnected');
+        elements.syncStatus.classList.add(connected ? 'connected' : 'disconnected');
+    }
+    if (elements.syncStatusText) {
+        elements.syncStatusText.textContent = message;
+    }
+}
+
+function setupFirebaseListener() {
+    if (!window.firebaseDb) {
+        updateSyncStatus(false, 'Offline mode');
+        return;
+    }
+
+    try {
+        const recipesRef = window.firebaseCollection(window.firebaseDb, 'recipes');
+        const q = window.firebaseQuery(recipesRef, window.firebaseOrderBy('createdAt', 'desc'));
+
+        unsubscribeFirebase = window.firebaseOnSnapshot(q, (snapshot) => {
+            const firebaseRecipes = [];
+            snapshot.forEach((doc) => {
+                firebaseRecipes.push(doc.data());
+            });
+
+            // Update local recipes with Firebase data
+            recipes = firebaseRecipes;
+            saveRecipes(); // Keep localStorage as backup
+
+            // Re-render UI
+            renderRecipeList(elements.searchInput.value);
+
+            // Update current recipe view if needed
+            if (currentRecipeId) {
+                const currentRecipe = getRecipe(currentRecipeId);
+                if (currentRecipe) {
+                    selectRecipe(currentRecipeId);
+                } else {
+                    // Current recipe was deleted
+                    currentRecipeId = null;
+                    if (recipes.length > 0) {
+                        selectRecipe(recipes[0].id);
+                    } else {
+                        elements.recipeDetail.style.display = 'none';
+                        elements.emptyState.style.display = 'flex';
+                    }
+                }
+            }
+
+            // Update sync status
+            updateSyncStatus(true, 'Synced');
+            console.log('Recipes synced from Firebase:', firebaseRecipes.length);
+        }, (error) => {
+            console.error('Firebase listener error:', error);
+            updateSyncStatus(false, 'Sync error');
+            showToast('Sync error. Using local data.', 'error');
+        });
+
+        firebaseReady = true;
+    } catch (error) {
+        console.error('Error setting up Firebase listener:', error);
+        updateSyncStatus(false, 'Connection failed');
+    }
+}
+
 function addRecipe(recipeData) {
     const recipe = {
         id: generateId(),
@@ -990,6 +1087,10 @@ function addRecipe(recipeData) {
     };
     recipes.unshift(recipe);
     saveRecipes();
+
+    // Sync to Firebase
+    syncRecipeToFirebase(recipe);
+
     return recipe;
 }
 
@@ -998,6 +1099,10 @@ function updateRecipe(id, updates) {
     if (index !== -1) {
         recipes[index] = { ...recipes[index], ...updates, updatedAt: new Date().toISOString() };
         saveRecipes();
+
+        // Sync to Firebase
+        syncRecipeToFirebase(recipes[index]);
+
         return recipes[index];
     }
     return null;
@@ -1008,6 +1113,10 @@ function deleteRecipe(id) {
     if (index !== -1) {
         recipes.splice(index, 1);
         saveRecipes();
+
+        // Delete from Firebase
+        deleteRecipeFromFirebase(id);
+
         return true;
     }
     return false;
@@ -1680,3 +1789,16 @@ function init() {
 
 // Start the app
 document.addEventListener('DOMContentLoaded', init);
+
+// Initialize Firebase when ready
+window.addEventListener('firebase-ready', () => {
+    console.log('Firebase SDK loaded, setting up listener...');
+    setupFirebaseListener();
+
+    // Sync any existing local recipes to Firebase (one-time migration)
+    if (recipes.length > 0 && !localStorage.getItem('firebaseMigrated')) {
+        console.log('Migrating local recipes to Firebase...');
+        recipes.forEach(recipe => syncRecipeToFirebase(recipe));
+        localStorage.setItem('firebaseMigrated', 'true');
+    }
+});

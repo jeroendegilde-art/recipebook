@@ -47,15 +47,20 @@
                 <!-- Recipe items will be inserted here -->
             </nav>
 
+            <div class="sync-status" id="syncStatus">
+                <span class="sync-status-dot"></span>
+                <span class="sync-status-text">Connecting...</span>
+            </div>
+
             <div class="sidebar-footer">
                 <div class="footer-buttons">
-                    <button class="btn btn-secondary" id="syncBtn" title="Sync with iCloud">
+                    <button class="btn btn-secondary" id="syncBtn" title="Export/Import">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                             <polyline points="7 10 12 15 17 10"></polyline>
                             <line x1="12" y1="15" x2="12" y2="3"></line>
                         </svg>
-                        Sync
+                        Backup
                     </button>
                     <button class="btn-icon" id="settingsBtn" title="Settings">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -299,7 +304,7 @@
             </div>
 
             <div class="modal-body sync-options">
-                <p class="sync-info">Save your recipes to iCloud Drive to sync across all your devices.</p>
+                <p class="sync-info">Your recipes sync automatically across devices. Use backup to export/import manually.</p>
 
                 <button class="btn btn-secondary btn-full" id="exportBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -362,6 +367,39 @@
 
     <!-- Toast notifications -->
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA2MxTgLgzze1G-ukr9HG5WzmsOa76OK_g",
+            authDomain: "recipebook-323a6.firebaseapp.com",
+            projectId: "recipebook-323a6",
+            storageBucket: "recipebook-323a6.firebasestorage.app",
+            messagingSenderId: "682711644168",
+            appId: "1:682711644168:web:928464fbaa052ddb02b9bd"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Make Firebase available globally for app.js
+        window.firebaseDb = db;
+        window.firebaseCollection = collection;
+        window.firebaseDoc = doc;
+        window.firebaseSetDoc = setDoc;
+        window.firebaseDeleteDoc = deleteDoc;
+        window.firebaseOnSnapshot = onSnapshot;
+        window.firebaseQuery = query;
+        window.firebaseOrderBy = orderBy;
+
+        // Signal that Firebase is ready
+        window.dispatchEvent(new Event('firebase-ready'));
+    </script>
 
     <script src="app.js"></script>
 </body>

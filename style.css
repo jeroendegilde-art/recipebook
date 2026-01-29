@@ -758,6 +758,38 @@ body {
     text-align: center;
 }
 
+/* Sync Status */
+.sync-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: 8px 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.sync-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+}
+
+.sync-status.connected .sync-status-dot {
+    background: var(--success);
+    animation: pulse 2s infinite;
+}
+
+.sync-status.disconnected .sync-status-dot {
+    background: var(--danger);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
 /* Toast */
 .toast-container {
     position: fixed;
