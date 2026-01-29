@@ -55,6 +55,11 @@
 /* Login Screen */
 .login-screen {
     position: fixed;
+    /* Fallback for browsers that don't support inset */
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     inset: 0;
     display: flex;
     align-items: center;
@@ -67,6 +72,8 @@
     text-align: center;
     padding: 48px;
     max-width: 400px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .login-logo {
@@ -101,15 +108,28 @@
 }
 
 .btn-login {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 14px 32px;
     font-size: 1rem;
     gap: 12px;
+    width: 100%;
+    max-width: 280px;
+    cursor: pointer;
+}
+
+.btn-login svg {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
 }
 
 .login-hint {
     margin-top: 24px;
     font-size: 0.875rem;
     color: var(--text-muted);
+    min-height: 20px;
 }
 
 .login-hint.error {
@@ -793,6 +813,11 @@ body {
 /* Modal */
 .modal {
     position: fixed;
+    /* Fallback for browsers that don't support inset */
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     inset: 0;
     z-index: 200;
     display: none;
@@ -807,6 +832,11 @@ body {
 
 .modal-backdrop {
     position: absolute;
+    /* Fallback for browsers that don't support inset */
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     inset: 0;
     background: rgba(0, 0, 0, 0.7);
 }
@@ -1115,6 +1145,25 @@ body {
 
     .toast {
         max-width: none;
+    }
+
+    /* Login screen mobile styles */
+    .login-container {
+        padding: 24px 16px;
+    }
+
+    .login-title {
+        font-size: 1.75rem;
+    }
+
+    .login-subtitle {
+        font-size: 0.9375rem;
+        margin-bottom: 24px;
+    }
+
+    .btn-login {
+        padding: 12px 24px;
+        font-size: 0.9375rem;
     }
 }
 

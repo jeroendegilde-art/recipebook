@@ -1435,14 +1435,34 @@ async function signInWithGoogle() {
     elements.loginGoogleBtn.disabled = true;
     elements.loginGoogleBtn.textContent = 'Signing in...';
     elements.loginHint.textContent = '';
+    elements.loginHint.classList.remove('error');
 
     try {
+        // For Firefox, we need to use signInWithRedirect if popup is blocked
         const result = await window.firebaseSignInWithPopup(window.firebaseAuth, window.firebaseGoogleProvider);
         currentUser = result.user;
         // Auth state change will handle the rest
     } catch (error) {
         console.error('Sign in error:', error);
-        elements.loginHint.textContent = 'Sign in failed: ' + error.message;
+
+        let errorMessage = 'Sign in failed. ';
+
+        // Handle specific Firebase auth errors
+        if (error.code === 'auth/popup-blocked') {
+            errorMessage = 'Popup was blocked. Please allow popups for this site and try again.';
+        } else if (error.code === 'auth/popup-closed-by-user') {
+            errorMessage = 'Sign in was cancelled. Please try again.';
+        } else if (error.code === 'auth/cancelled-popup-request') {
+            errorMessage = 'Sign in was cancelled. Please try again.';
+        } else if (error.code === 'auth/network-request-failed') {
+            errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.code === 'auth/unauthorized-domain') {
+            errorMessage = 'This domain is not authorized for sign in. Please contact support.';
+        } else if (error.message) {
+            errorMessage += error.message;
+        }
+
+        elements.loginHint.textContent = errorMessage;
         elements.loginHint.classList.add('error');
         elements.loginGoogleBtn.disabled = false;
         elements.loginGoogleBtn.innerHTML = `
