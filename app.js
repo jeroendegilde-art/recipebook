@@ -2201,14 +2201,7 @@ function setupEventListeners() {
                 const imported = JSON.parse(text);
 
                 if (Array.isArray(imported)) {
-                    recipes = imported;
-                    saveRecipes();
-                    currentRecipeId = null;
-                    renderRecipeList();
-                    if (recipes.length > 0) {
-                        selectRecipe(recipes[0].id);
-                    }
-                    showToast(`Loaded ${recipes.length} recipes!`);
+                    await importRecipesAndSync(imported);
                     closeModal(elements.syncModal);
                 }
                 return;
@@ -2233,14 +2226,7 @@ function setupEventListeners() {
             const imported = JSON.parse(text);
 
             if (Array.isArray(imported)) {
-                recipes = imported;
-                saveRecipes();
-                currentRecipeId = null;
-                renderRecipeList();
-                if (recipes.length > 0) {
-                    selectRecipe(recipes[0].id);
-                }
-                showToast(`Loaded ${recipes.length} recipes!`);
+                await importRecipesAndSync(imported);
                 closeModal(elements.syncModal);
             }
         } catch (error) {
@@ -2285,6 +2271,41 @@ function setupEventListeners() {
             elements.searchInput.focus();
         }
     });
+}
+
+// ============================================
+// Import recipes and sync to Firebase
+// ============================================
+
+async function importRecipesAndSync(imported) {
+    recipes = imported;
+    saveRecipes();
+    currentRecipeId = null;
+    renderRecipeList();
+
+    if (recipes.length > 0) {
+        selectRecipe(recipes[0].id);
+    }
+
+    // Sync all imported recipes to Firebase
+    if (currentUser && window.firebaseDb) {
+        showToast(`Syncing ${recipes.length} recipes to cloud...`, 'info');
+
+        let synced = 0;
+        for (const recipe of recipes) {
+            try {
+                await syncRecipeToFirebase(recipe);
+                synced++;
+            } catch (error) {
+                console.error('Failed to sync recipe:', recipe.title, error);
+            }
+        }
+
+        showToast(`Loaded and synced ${synced} recipes!`, 'success');
+        console.log(`Imported and synced ${synced}/${recipes.length} recipes to Firebase`);
+    } else {
+        showToast(`Loaded ${recipes.length} recipes (offline)`, 'success');
+    }
 }
 
 // ============================================
