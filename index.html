@@ -163,6 +163,13 @@
                     <div class="recipe-title-row">
                         <h2 id="recipeTitle"></h2>
                         <div class="recipe-actions">
+                            <button class="btn-icon" id="shareRecipeBtn" title="Share as PDF">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                                    <polyline points="16 6 12 2 8 6"></polyline>
+                                    <line x1="12" y1="2" x2="12" y2="15"></line>
+                                </svg>
+                            </button>
                             <button class="btn-icon" id="editRecipeBtn" title="Edit recipe">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -236,9 +243,55 @@
             <div class="modal-body">
                 <!-- Input type tabs -->
                 <div class="input-tabs">
+                    <button class="tab" data-tab="camera">Camera</button>
                     <button class="tab active" data-tab="url">From URL</button>
-                    <button class="tab" data-tab="paste">Paste HTML</button>
+                    <button class="tab" data-tab="paste">Paste</button>
                     <button class="tab" data-tab="text">Manual</button>
+                </div>
+
+                <!-- Camera Input -->
+                <div class="tab-content" id="cameraTab">
+                    <div class="camera-container">
+                        <div class="camera-preview" id="cameraPreview">
+                            <div class="camera-placeholder" id="cameraPlaceholder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                    <circle cx="12" cy="13" r="4"></circle>
+                                </svg>
+                                <p>Take photos of your recipe</p>
+                            </div>
+                            <div class="captured-images" id="capturedImages"></div>
+                        </div>
+                        <div class="camera-controls">
+                            <input type="file" id="cameraInput" accept="image/*" capture="environment" multiple style="display: none;">
+                            <button class="btn btn-secondary btn-full" id="takePhotoBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                    <circle cx="12" cy="13" r="4"></circle>
+                                </svg>
+                                Take Photo
+                            </button>
+                            <button class="btn btn-secondary btn-full" id="addMorePhotosBtn" style="display: none;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                    <path d="M12 5v14M5 12h14"></path>
+                                </svg>
+                                Add Another Page
+                            </button>
+                            <button class="btn btn-primary btn-full" id="processPhotosBtn" style="display: none;">
+                                <span class="btn-text">Extract Recipe from Photos</span>
+                                <span class="btn-loading" style="display: none;">
+                                    <svg class="spinner" viewBox="0 0 24 24">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"></circle>
+                                    </svg>
+                                    Processing...
+                                </span>
+                            </button>
+                            <button class="btn btn-secondary btn-full" id="clearPhotosBtn" style="display: none;">Clear Photos</button>
+                        </div>
+                        <p class="help-text" style="margin-top: 12px; text-align: center;">
+                            Take one or more photos of a recipe. For recipes that span multiple pages, tap "Add Another Page" after each photo.
+                        </p>
+                    </div>
                 </div>
 
                 <!-- URL Input -->

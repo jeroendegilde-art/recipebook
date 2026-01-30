@@ -17,6 +17,7 @@ let firebaseReady = false;
 let unsubscribeFirebase = null;
 let unsubscribeFolders = null;
 let unsubscribeUserSettings = null;
+let capturedPhotos = []; // For camera feature
 
 // DOM Elements
 const elements = {
@@ -144,7 +145,21 @@ const elements = {
     loginScreen: document.getElementById('loginScreen'),
     loginGoogleBtn: document.getElementById('loginGoogleBtn'),
     loginHint: document.getElementById('loginHint'),
-    app: document.getElementById('app')
+    app: document.getElementById('app'),
+
+    // Camera tab
+    cameraTab: document.getElementById('cameraTab'),
+    cameraInput: document.getElementById('cameraInput'),
+    cameraPreview: document.getElementById('cameraPreview'),
+    cameraPlaceholder: document.getElementById('cameraPlaceholder'),
+    capturedImages: document.getElementById('capturedImages'),
+    takePhotoBtn: document.getElementById('takePhotoBtn'),
+    addMorePhotosBtn: document.getElementById('addMorePhotosBtn'),
+    processPhotosBtn: document.getElementById('processPhotosBtn'),
+    clearPhotosBtn: document.getElementById('clearPhotosBtn'),
+
+    // Share/PDF
+    shareRecipeBtn: document.getElementById('shareRecipeBtn')
 };
 
 // ============================================
@@ -387,6 +402,259 @@ ${text.substring(0, 15000)}`;
 // Check if API key is configured
 function hasApiKey() {
     return !!claudeApiKey;
+}
+
+// ============================================
+// Camera/Photo Recipe Extraction
+// ============================================
+
+async function extractRecipeFromPhotos(photos) {
+    if (!claudeApiKey) {
+        throw new Error('Please add your Claude API key in Settings to use camera import');
+    }
+
+    if (photos.length === 0) {
+        throw new Error('No photos to process');
+    }
+
+    // Convert photos to base64 for Claude API
+    const imageContents = await Promise.all(photos.map(async (photo) => {
+        return {
+            type: 'image',
+            source: {
+                type: 'base64',
+                media_type: photo.type || 'image/jpeg',
+                data: photo.base64.split(',')[1] // Remove data URL prefix
+            }
+        };
+    }));
+
+    const prompt = `Look at these recipe photo(s) and extract the complete recipe. The photos may show one or multiple pages of the same recipe.
+
+Return a JSON object with exactly this structure:
+{
+  "title": "Recipe Name",
+  "servings": "4 servings",
+  "ingredients": ["ingredient 1", "ingredient 2"],
+  "instructions": ["step 1", "step 2"],
+  "notes": "any tips or notes"
+}
+
+IMPORTANT RULES:
+1. Convert ALL measurements to metric (cups to ml, oz to grams, F to C, etc.)
+2. Each ingredient should be a single line with quantity and item
+3. Each instruction should be a complete step
+4. Remove any step numbers from instructions (just the text)
+5. Extract the servings/yield if shown
+6. Combine information from all photos into one complete recipe
+7. If you can't read parts clearly, do your best to interpret them
+8. Return ONLY the JSON object, no other text`;
+
+    try {
+        console.log('Sending photos to Claude API...');
+
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': claudeApiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 4096,
+                messages: [{
+                    role: 'user',
+                    content: [
+                        ...imageContents,
+                        { type: 'text', text: prompt }
+                    ]
+                }]
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error?.message || `API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const content = data.content[0].text;
+
+        // Parse the JSON from Claude's response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error('Could not parse recipe from photos');
+        }
+
+        const recipe = JSON.parse(jsonMatch[0]);
+
+        return {
+            title: recipe.title || 'Untitled Recipe',
+            servings: recipe.servings || '',
+            ingredients: recipe.ingredients || [],
+            instructions: recipe.instructions || [],
+            notes: recipe.notes || '',
+            source: ''
+        };
+
+    } catch (error) {
+        console.error('Photo extraction error:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// PDF Generation
+// ============================================
+
+async function generateRecipePDF(recipe) {
+    // Create a temporary container for the PDF content
+    const container = document.createElement('div');
+    container.className = 'pdf-container';
+    container.innerHTML = `
+        <h1>${escapeHtml(recipe.title)}</h1>
+        ${recipe.source ? `<div class="pdf-source">Source: ${escapeHtml(recipe.source)}</div>` : ''}
+        ${recipe.servings ? `<div class="pdf-servings">${escapeHtml(recipe.servings)}</div>` : ''}
+
+        <h2>Ingredients</h2>
+        <ul>
+            ${recipe.ingredients.map(ing => `<li>${escapeHtml(ing)}</li>`).join('')}
+        </ul>
+
+        <h2>Instructions</h2>
+        <ol>
+            ${recipe.instructions.map(inst => `<li>${escapeHtml(inst)}</li>`).join('')}
+        </ol>
+
+        ${recipe.notes ? `<div class="pdf-notes"><strong>Notes:</strong> ${escapeHtml(recipe.notes)}</div>` : ''}
+
+        <div class="pdf-footer">Generated from Recipe Book</div>
+    `;
+
+    document.body.appendChild(container);
+
+    try {
+        // Use the browser's print functionality to generate PDF
+        const printWindow = window.open('', '_blank');
+
+        if (!printWindow) {
+            throw new Error('Could not open print window. Please allow popups.');
+        }
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>${escapeHtml(recipe.title)}</title>
+                <style>
+                    * {
+                        box-sizing: border-box;
+                    }
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        padding: 40px;
+                        max-width: 800px;
+                        margin: 0 auto;
+                        color: #333;
+                        line-height: 1.6;
+                    }
+                    h1 {
+                        font-size: 28px;
+                        margin: 0 0 8px 0;
+                        color: #1a1d23;
+                    }
+                    .pdf-source {
+                        font-size: 12px;
+                        color: #666;
+                        margin-bottom: 16px;
+                    }
+                    .pdf-servings {
+                        font-size: 14px;
+                        color: #444;
+                        margin-bottom: 20px;
+                        padding: 8px 16px;
+                        background: #f5f5f5;
+                        border-radius: 8px;
+                        display: inline-block;
+                    }
+                    h2 {
+                        font-size: 18px;
+                        margin: 24px 0 12px 0;
+                        color: #333;
+                        border-bottom: 2px solid #eee;
+                        padding-bottom: 6px;
+                    }
+                    ul, ol {
+                        margin: 0;
+                        padding-left: 24px;
+                    }
+                    li {
+                        font-size: 14px;
+                        margin-bottom: 8px;
+                    }
+                    .pdf-notes {
+                        margin-top: 24px;
+                        padding: 16px;
+                        background: #f9f9f9;
+                        border-radius: 8px;
+                        font-size: 13px;
+                        color: #555;
+                    }
+                    .pdf-footer {
+                        margin-top: 32px;
+                        padding-top: 16px;
+                        border-top: 1px solid #eee;
+                        font-size: 11px;
+                        color: #999;
+                        text-align: center;
+                    }
+                    @media print {
+                        body {
+                            padding: 20px;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>${escapeHtml(recipe.title)}</h1>
+                ${recipe.source ? `<div class="pdf-source">Source: ${escapeHtml(recipe.source)}</div>` : ''}
+                ${recipe.servings ? `<div class="pdf-servings">${escapeHtml(recipe.servings)}</div>` : ''}
+
+                <h2>Ingredients</h2>
+                <ul>
+                    ${recipe.ingredients.map(ing => `<li>${escapeHtml(ing)}</li>`).join('')}
+                </ul>
+
+                <h2>Instructions</h2>
+                <ol>
+                    ${recipe.instructions.map(inst => `<li>${escapeHtml(inst)}</li>`).join('')}
+                </ol>
+
+                ${recipe.notes ? `<div class="pdf-notes"><strong>Notes:</strong> ${escapeHtml(recipe.notes)}</div>` : ''}
+
+                <div class="pdf-footer">Generated from Recipe Book</div>
+            </body>
+            </html>
+        `);
+
+        printWindow.document.close();
+
+        // Wait for content to load, then print
+        printWindow.onload = () => {
+            printWindow.print();
+        };
+
+        // Fallback for iOS
+        setTimeout(() => {
+            printWindow.print();
+        }, 500);
+
+    } finally {
+        document.body.removeChild(container);
+    }
 }
 
 // ============================================
@@ -1576,6 +1844,42 @@ function setupFoldersListener() {
 // UI Functions
 // ============================================
 
+function updateCameraPreview() {
+    if (capturedPhotos.length === 0) {
+        // Show placeholder
+        elements.cameraPlaceholder.style.display = 'block';
+        elements.capturedImages.innerHTML = '';
+        elements.takePhotoBtn.style.display = 'flex';
+        elements.addMorePhotosBtn.style.display = 'none';
+        elements.processPhotosBtn.style.display = 'none';
+        elements.clearPhotosBtn.style.display = 'none';
+    } else {
+        // Show captured images
+        elements.cameraPlaceholder.style.display = 'none';
+        elements.capturedImages.innerHTML = capturedPhotos.map((photo, index) => `
+            <div class="captured-image">
+                <img src="${photo.base64}" alt="Page ${index + 1}">
+                <span class="image-number">${index + 1}</span>
+                <button class="remove-image" data-index="${index}">&times;</button>
+            </div>
+        `).join('');
+
+        // Add remove handlers
+        elements.capturedImages.querySelectorAll('.remove-image').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                capturedPhotos.splice(index, 1);
+                updateCameraPreview();
+            });
+        });
+
+        elements.takePhotoBtn.style.display = 'none';
+        elements.addMorePhotosBtn.style.display = 'flex';
+        elements.processPhotosBtn.style.display = 'flex';
+        elements.clearPhotosBtn.style.display = 'flex';
+    }
+}
+
 function showToast(message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -2095,6 +2399,102 @@ function setupEventListeners() {
         }
 
         showToast('Recipe deleted');
+    });
+
+    // Share recipe as PDF
+    elements.shareRecipeBtn?.addEventListener('click', async () => {
+        const recipe = getRecipe(currentRecipeId);
+        if (!recipe) return;
+
+        try {
+            await generateRecipePDF(recipe);
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+
+    // Camera functionality
+    elements.takePhotoBtn?.addEventListener('click', () => {
+        elements.cameraInput.click();
+    });
+
+    elements.addMorePhotosBtn?.addEventListener('click', () => {
+        elements.cameraInput.click();
+    });
+
+    elements.cameraInput?.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        for (const file of files) {
+            // Convert to base64
+            const base64 = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsDataURL(file);
+            });
+
+            capturedPhotos.push({
+                base64,
+                type: file.type,
+                name: file.name
+            });
+        }
+
+        updateCameraPreview();
+        e.target.value = ''; // Reset input for next capture
+    });
+
+    elements.clearPhotosBtn?.addEventListener('click', () => {
+        capturedPhotos = [];
+        updateCameraPreview();
+    });
+
+    elements.processPhotosBtn?.addEventListener('click', async () => {
+        if (capturedPhotos.length === 0) {
+            showToast('Please take at least one photo first', 'error');
+            return;
+        }
+
+        if (!hasApiKey()) {
+            showToast('Please add your Claude API key in Settings first', 'error');
+            return;
+        }
+
+        // Show loading state
+        const btn = elements.processPhotosBtn;
+        const btnText = btn.querySelector('.btn-text');
+        const btnLoading = btn.querySelector('.btn-loading');
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline-flex';
+        btn.disabled = true;
+
+        try {
+            const recipeData = await extractRecipeFromPhotos(capturedPhotos);
+
+            if (!recipeData.title || recipeData.ingredients.length === 0) {
+                throw new Error('Could not extract recipe from photos. Try taking clearer photos.');
+            }
+
+            const recipe = addRecipe(recipeData);
+
+            // Clear photos and close modal
+            capturedPhotos = [];
+            updateCameraPreview();
+            closeModal(elements.addModal);
+
+            renderRecipeList();
+            selectRecipe(recipe.id);
+            showToast('Recipe extracted successfully!');
+
+        } catch (error) {
+            console.error('Photo processing error:', error);
+            showToast(error.message, 'error');
+        } finally {
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+            btn.disabled = false;
+        }
     });
 
     // Copy ingredients to clipboard
