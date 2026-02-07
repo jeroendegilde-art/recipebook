@@ -2017,18 +2017,25 @@ function renderRecipeList(filter = '') {
 }
 
 function selectRecipe(id) {
+    console.log('selectRecipe called with id:', id);
     currentRecipeId = id;
     const recipe = getRecipe(id);
 
     if (!recipe) {
+        console.log('Recipe not found for id:', id);
         elements.recipeDetail.style.display = 'none';
         elements.emptyState.style.display = 'flex';
-        elements.recipeHome.style.display = 'none';
+        if (elements.recipeHome) elements.recipeHome.style.display = 'none';
         return;
     }
 
+    console.log('Showing recipe:', recipe.title);
+
+    // Hide home view and empty state, show recipe detail
     elements.emptyState.style.display = 'none';
-    elements.recipeHome.style.display = 'none';
+    if (elements.recipeHome) {
+        elements.recipeHome.style.display = 'none';
+    }
     elements.recipeDetail.style.display = 'block';
 
     // Update content
