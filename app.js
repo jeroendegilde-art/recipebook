@@ -1971,17 +1971,8 @@ function renderRecipeGrid(filter = '') {
         `;
     }).join('');
 
-    // Add click handlers
-    const cards = elements.recipeGrid.querySelectorAll('.recipe-card');
-    console.log('Adding click handlers to', cards.length, 'recipe cards');
-    cards.forEach(card => {
-        card.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Card clicked:', card.dataset.id);
-            selectRecipe(card.dataset.id);
-        });
-    });
+    // Add click handlers using event delegation on the grid container
+    // This is more reliable than adding handlers to each card
 }
 
 function renderRecipeList(filter = '') {
@@ -2019,16 +2010,7 @@ function renderRecipeList(filter = '') {
         </button>
     `).join('');
 
-    // Add click handlers
-    elements.recipeList.querySelectorAll('.recipe-item').forEach(item => {
-        item.addEventListener('click', () => {
-            selectRecipe(item.dataset.id);
-            // Close sidebar on mobile
-            if (window.innerWidth <= 768) {
-                elements.sidebar.classList.remove('open');
-            }
-        });
-    });
+    // Click handlers are set up via event delegation in setupEventListeners
 
     // Also update the grid view
     renderRecipeGrid(filter);
@@ -2083,8 +2065,19 @@ function selectRecipe(id) {
         elements.notesSection.style.display = 'none';
     }
 
-    // Update sidebar selection
-    renderRecipeList(elements.searchInput.value);
+    // Update sidebar selection (just highlight, don't re-render grid)
+    updateSidebarSelection();
+}
+
+// Update which recipe is highlighted in the sidebar without full re-render
+function updateSidebarSelection() {
+    elements.recipeList.querySelectorAll('.recipe-item').forEach(item => {
+        if (item.dataset.id === currentRecipeId) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
 }
 
 function escapeHtml(text) {
@@ -2642,6 +2635,34 @@ function setupEventListeners() {
     // Back to grid button
     elements.backToGridBtn?.addEventListener('click', () => {
         showHomeView();
+    });
+
+    // Recipe grid - use event delegation for card clicks
+    elements.recipeGrid?.addEventListener('click', (e) => {
+        const card = e.target.closest('.recipe-card');
+        if (card) {
+            const recipeId = card.dataset.id;
+            console.log('Recipe card clicked via delegation:', recipeId);
+            if (recipeId) {
+                selectRecipe(recipeId);
+            }
+        }
+    });
+
+    // Recipe list (sidebar) - use event delegation for item clicks
+    elements.recipeList?.addEventListener('click', (e) => {
+        const item = e.target.closest('.recipe-item');
+        if (item) {
+            const recipeId = item.dataset.id;
+            console.log('Recipe item clicked via delegation:', recipeId);
+            if (recipeId) {
+                selectRecipe(recipeId);
+                // Close sidebar on mobile
+                if (window.innerWidth <= 768) {
+                    elements.sidebar.classList.remove('open');
+                }
+            }
+        }
     });
 
     // Mobile menu
