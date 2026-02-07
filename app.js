@@ -159,7 +159,13 @@ const elements = {
     clearPhotosBtn: document.getElementById('clearPhotosBtn'),
 
     // Share/PDF
-    shareRecipeBtn: document.getElementById('shareRecipeBtn')
+    shareRecipeBtn: document.getElementById('shareRecipeBtn'),
+
+    // Home/Grid view
+    recipeHome: document.getElementById('recipeHome'),
+    recipeGrid: document.getElementById('recipeGrid'),
+    homeSearchInput: document.getElementById('homeSearchInput'),
+    backToGridBtn: document.getElementById('backToGridBtn')
 };
 
 // ============================================
@@ -1892,6 +1898,87 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
+// Show home grid view
+function showHomeView() {
+    elements.recipeHome.style.display = 'block';
+    elements.recipeDetail.style.display = 'none';
+    elements.emptyState.style.display = 'none';
+    currentRecipeId = null;
+    renderRecipeGrid();
+}
+
+// Render the recipe grid on home page
+function renderRecipeGrid(filter = '') {
+    let filteredRecipes = filter
+        ? recipes.filter(r => r.title.toLowerCase().includes(filter.toLowerCase()))
+        : recipes;
+
+    // Filter by folder if not "all"
+    if (currentFolderId !== 'all') {
+        filteredRecipes = filteredRecipes.filter(r => r.folderId === currentFolderId);
+    }
+
+    if (recipes.length === 0) {
+        // No recipes at all - show empty state
+        elements.recipeHome.style.display = 'none';
+        elements.emptyState.style.display = 'flex';
+        return;
+    }
+
+    elements.emptyState.style.display = 'none';
+    elements.recipeHome.style.display = 'block';
+
+    if (filteredRecipes.length === 0) {
+        elements.recipeGrid.innerHTML = `
+            <div class="recipe-grid-empty">
+                <p>No recipes found</p>
+            </div>
+        `;
+        return;
+    }
+
+    elements.recipeGrid.innerHTML = filteredRecipes.map(recipe => {
+        const folder = folders.find(f => f.id === recipe.folderId);
+        return `
+            <div class="recipe-card" data-id="${recipe.id}">
+                <h3 class="recipe-card-title">${escapeHtml(recipe.title)}</h3>
+                <div class="recipe-card-meta">
+                    <span class="recipe-card-meta-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        ${recipe.ingredients.length} ingredients
+                    </span>
+                    ${recipe.servings ? `
+                        <span class="recipe-card-meta-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                            </svg>
+                            ${escapeHtml(recipe.servings)}
+                        </span>
+                    ` : ''}
+                </div>
+                ${folder ? `
+                    <div class="recipe-card-folder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        ${escapeHtml(folder.name)}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+
+    // Add click handlers
+    elements.recipeGrid.querySelectorAll('.recipe-card').forEach(card => {
+        card.addEventListener('click', () => {
+            selectRecipe(card.dataset.id);
+        });
+    });
+}
+
 function renderRecipeList(filter = '') {
     // Filter by search term
     let filteredRecipes = filter
@@ -1907,6 +1994,7 @@ function renderRecipeList(filter = '') {
         elements.recipeList.innerHTML = '';
         elements.emptyState.style.display = 'flex';
         elements.recipeDetail.style.display = 'none';
+        elements.recipeHome.style.display = 'none';
         return;
     }
 
@@ -1936,6 +2024,9 @@ function renderRecipeList(filter = '') {
             }
         });
     });
+
+    // Also update the grid view
+    renderRecipeGrid(filter);
 }
 
 function selectRecipe(id) {
@@ -1945,10 +2036,12 @@ function selectRecipe(id) {
     if (!recipe) {
         elements.recipeDetail.style.display = 'none';
         elements.emptyState.style.display = 'flex';
+        elements.recipeHome.style.display = 'none';
         return;
     }
 
     elements.emptyState.style.display = 'none';
+    elements.recipeHome.style.display = 'none';
     elements.recipeDetail.style.display = 'block';
 
     // Update content
@@ -2524,9 +2617,26 @@ function setupEventListeners() {
         }
     });
 
-    // Search
+    // Search (sidebar)
     elements.searchInput.addEventListener('input', (e) => {
         renderRecipeList(e.target.value);
+        // Sync with home search
+        if (elements.homeSearchInput) {
+            elements.homeSearchInput.value = e.target.value;
+        }
+    });
+
+    // Search (home view)
+    elements.homeSearchInput?.addEventListener('input', (e) => {
+        renderRecipeGrid(e.target.value);
+        // Sync with sidebar search
+        elements.searchInput.value = e.target.value;
+        renderRecipeList(e.target.value);
+    });
+
+    // Back to grid button
+    elements.backToGridBtn?.addEventListener('click', () => {
+        showHomeView();
     });
 
     // Mobile menu
@@ -2820,9 +2930,8 @@ window.addEventListener('firebase-ready', () => {
                 updateFolderSelects();
                 renderRecipeList();
 
-                if (recipes.length > 0) {
-                    selectRecipe(recipes[0].id);
-                }
+                // Show home view with recipe grid instead of selecting first recipe
+                showHomeView();
 
                 // Show hint about API key if not set
                 showApiKeyHint();
