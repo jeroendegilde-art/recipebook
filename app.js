@@ -1940,7 +1940,7 @@ function renderRecipeGrid(filter = '') {
     elements.recipeGrid.innerHTML = filteredRecipes.map(recipe => {
         const folder = folders.find(f => f.id === recipe.folderId);
         return `
-            <div class="recipe-card" data-id="${recipe.id}">
+            <button type="button" class="recipe-card" data-id="${recipe.id}">
                 <h3 class="recipe-card-title">${escapeHtml(recipe.title)}</h3>
                 <div class="recipe-card-meta">
                     <span class="recipe-card-meta-item">
@@ -1967,13 +1967,18 @@ function renderRecipeGrid(filter = '') {
                         ${escapeHtml(folder.name)}
                     </div>
                 ` : ''}
-            </div>
+            </button>
         `;
     }).join('');
 
     // Add click handlers
-    elements.recipeGrid.querySelectorAll('.recipe-card').forEach(card => {
-        card.addEventListener('click', () => {
+    const cards = elements.recipeGrid.querySelectorAll('.recipe-card');
+    console.log('Adding click handlers to', cards.length, 'recipe cards');
+    cards.forEach(card => {
+        card.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Card clicked:', card.dataset.id);
             selectRecipe(card.dataset.id);
         });
     });
