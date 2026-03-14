@@ -295,7 +295,7 @@ Return a JSON object with exactly this structure:
 }
 
 IMPORTANT RULES:
-1. Convert measurements: oz/lbs to grams, cups/pints/quarts to ml, °F to °C. Keep teaspoons and tablespoons (tsp/tbsp) as-is.
+1. Measurements — convert: oz/lbs→grams, cups/pints/quarts→ml, inches→cm, °F→°C. NEVER convert teaspoons or tablespoons (tsp/tbsp/teaspoon/tablespoon) — leave them exactly as written.
 2. Each ingredient should be a single line with quantity and item.
 3. INSTRUCTIONS — split into individual, clearly separated steps:
    - Each array item = exactly ONE cooking action (mix, bake, chop, fry, rest, etc.)
@@ -458,7 +458,7 @@ Return a JSON object with exactly this structure:
 }
 
 IMPORTANT RULES:
-1. Convert measurements: oz/lbs to grams, cups/pints/quarts to ml, °F to °C. Keep teaspoons and tablespoons (tsp/tbsp) as-is.
+1. Measurements — convert: oz/lbs→grams, cups/pints/quarts→ml, inches→cm, °F→°C. NEVER convert teaspoons or tablespoons (tsp/tbsp/teaspoon/tablespoon) — leave them exactly as written.
 2. Each ingredient should be a single line with quantity and item.
 3. INSTRUCTIONS — split into individual, clearly separated steps:
    - Each array item = exactly ONE cooking action
