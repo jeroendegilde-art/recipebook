@@ -218,13 +218,17 @@ function convertToMetric(text) {
     };
 
     // Build regex pattern for all units
+    // Require a number or fraction before the unit to avoid matching units
+    // inside words (e.g. "inch" inside "pinch")
     const unitPattern = Object.keys(conversions).join('|');
     const regex = new RegExp(
-        `(\\d+)?\\s*([${Object.keys(fractionMap).join('')}]|\\d+\\/\\d+)?\\s*(${unitPattern})(?:\\s|$|,|\\.)`,
+        `(\\d+)\\s*([${Object.keys(fractionMap).join('')}]|\\d+\\/\\d+)?\\s*\\b(${unitPattern})\\b|([${Object.keys(fractionMap).join('')}]|\\d+\\/\\d+)\\s*\\b(${unitPattern})\\b`,
         'gi'
     );
 
-    text = text.replace(regex, (match, whole, fraction, unit) => {
+    text = text.replace(regex, (match, whole, fracAfterWhole, unitAfterWhole, fracOnly, unitAfterFrac) => {
+        const fraction = fracAfterWhole || fracOnly;
+        const unit = unitAfterWhole || unitAfterFrac;
         let value = 0;
 
         if (whole) {
@@ -234,7 +238,7 @@ function convertToMetric(text) {
         if (fraction) {
             if (fractionMap[fraction]) {
                 value += fractionMap[fraction];
-            } else if (fraction.includes('/')) {
+            } else if (fraction && fraction.includes('/')) {
                 const [num, denom] = fraction.split('/');
                 value += parseInt(num) / parseInt(denom);
             }
