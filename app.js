@@ -2534,12 +2534,34 @@ function setupEventListeners() {
                 const html = await fetchWithProxy(recipe.source);
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
-                // Clean up noise
-                doc.querySelectorAll('script,style,nav,footer,header,aside,[class*="comment"],[class*="ad"],[id*="ad"]').forEach(el => el.remove());
-                // Use textContent (innerText is empty in DOMParser — no layout)
-                const text = (doc.body?.textContent || '').replace(/\s+/g, ' ').trim();
-                if (!text) throw new Error('Could not extract text from page');
-                recipeData = await extractRecipeWithClaude(text, recipe.source);
+
+                // Only remove truly non-content elements (scripts/styles)
+                doc.querySelectorAll('script, style, noscript').forEach(el => el.remove());
+
+                // Prefer a focused content block if one exists
+                const contentEl =
+                    doc.querySelector('main') ||
+                    doc.querySelector('article') ||
+                    doc.querySelector('[class*="recipe"]') ||
+                    doc.querySelector('[id*="recipe"]') ||
+                    doc.body;
+
+                const text = (contentEl?.textContent || '').replace(/\s+/g, ' ').trim();
+
+                if (text) {
+                    recipeData = await extractRecipeWithClaude(text, recipe.source);
+                } else {
+                    // Fallback: use fetchRecipeFromUrl (JSON-LD/heuristic) and reformat via Claude
+                    const base = await fetchRecipeFromUrl(recipe.source);
+                    const fallbackText = [
+                        `Recipe: ${base.title}`,
+                        base.servings ? `Servings: ${base.servings}` : '',
+                        '', 'Ingredients:', ...(base.ingredients || []),
+                        '', 'Instructions:', ...(base.instructions || []).map((s, i) => `${i + 1}. ${s}`),
+                        base.notes ? `Notes: ${base.notes}` : ''
+                    ].join('\n');
+                    recipeData = await extractRecipeWithClaude(fallbackText, recipe.source);
+                }
             } else {
                 // No URL — reconstruct text from existing data and let Claude reformat it
                 const text = [
