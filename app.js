@@ -295,7 +295,7 @@ Return a JSON object with exactly this structure:
 }
 
 IMPORTANT RULES:
-1. Measurements — convert: oz/lbs→grams, cups/pints/quarts→ml, inches→cm, °F→°C. NEVER convert teaspoons or tablespoons (tsp/tbsp/teaspoon/tablespoon) — leave them exactly as written.
+1. Extract ALL measurements EXACTLY as written in the source — do NOT convert any units. Copy numbers and units verbatim (e.g. keep "1 cup", "2 oz", "350°F", "1 inch", "1 tsp" exactly as-is).
 2. Each ingredient should be a single line with quantity and item.
 3. INSTRUCTIONS — split into individual, clearly separated steps:
    - Each array item = exactly ONE cooking action (mix, bake, chop, fry, rest, etc.)
@@ -393,10 +393,13 @@ ${text.substring(0, 15000)}`;
             throw new Error(recipe.error);
         }
 
+        const ingredients = (recipe.ingredients || []).map(convertToMetric);
+        const instructions = (recipe.instructions || []).map(convertToMetric);
+
         return {
             title: recipe.title || 'Untitled Recipe',
-            ingredients: recipe.ingredients || [],
-            instructions: recipe.instructions || [],
+            ingredients,
+            instructions,
             source: sourceUrl,
             notes: recipe.notes || ''
         };
@@ -458,7 +461,7 @@ Return a JSON object with exactly this structure:
 }
 
 IMPORTANT RULES:
-1. Measurements — convert: oz/lbs→grams, cups/pints/quarts→ml, inches→cm, °F→°C. NEVER convert teaspoons or tablespoons (tsp/tbsp/teaspoon/tablespoon) — leave them exactly as written.
+1. Extract ALL measurements EXACTLY as written in the source — do NOT convert any units. Copy numbers and units verbatim (e.g. keep "1 cup", "2 oz", "350°F", "1 inch", "1 tsp" exactly as-is).
 2. Each ingredient should be a single line with quantity and item.
 3. INSTRUCTIONS — split into individual, clearly separated steps:
    - Each array item = exactly ONE cooking action
@@ -2527,18 +2530,28 @@ function setupEventListeners() {
         showToast('Re-extracting recipe…');
 
         try {
-            // Always reformat from existing data — no re-fetching needed.
-            // Claude re-splits the instructions properly from what we already have.
+            // For URL recipes: re-fetch to get original measurements (pre-conversion),
+            // then let Claude reformat steps. Fall back to existing data silently.
+            let sourceRecipe = null;
+            if (recipe.source && recipe.source.startsWith('http')) {
+                try {
+                    sourceRecipe = await fetchRecipeFromUrl(recipe.source);
+                } catch (e) {
+                    console.log('Re-fetch failed, using existing data:', e.message);
+                }
+            }
+
+            const base = sourceRecipe || recipe;
             const text = [
-                `Recipe: ${recipe.title}`,
-                recipe.servings ? `Servings: ${recipe.servings}` : '',
+                `Recipe: ${base.title}`,
+                base.servings ? `Servings: ${base.servings}` : '',
                 '',
                 'Ingredients:',
-                ...(recipe.ingredients || []),
+                ...(base.ingredients || []),
                 '',
                 'Instructions:',
-                ...(recipe.instructions || []).map((s, i) => `${i + 1}. ${s}`),
-                recipe.notes ? `Notes: ${recipe.notes}` : ''
+                ...(base.instructions || []).map((s, i) => `${i + 1}. ${s}`),
+                base.notes ? `Notes: ${base.notes}` : ''
             ].join('\n');
 
             const recipeData = await extractRecipeWithClaude(text, recipe.source || '');
