@@ -204,75 +204,63 @@ const conversions = {
 };
 
 function convertToMetric(text) {
-    // Convert temperatures
-    text = text.replace(/(\d+)\s*°?\s*F(?:ahrenheit)?/gi, (match, temp) => {
-        const celsius = Math.round((parseInt(temp) - 32) * 5 / 9);
-        return `${celsius}°C`;
-    });
-
-    // Convert fractions to decimals
     const fractionMap = {
         '½': 0.5, '⅓': 0.333, '⅔': 0.667, '¼': 0.25, '¾': 0.75,
         '⅕': 0.2, '⅖': 0.4, '⅗': 0.6, '⅘': 0.8, '⅙': 0.167,
         '⅚': 0.833, '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875
     };
+    const fc = Object.keys(fractionMap).join(''); // fraction unicode chars
 
-    // Build regex pattern for all units
-    // Require a number or fraction before the unit to avoid matching units
-    // inside words (e.g. "inch" inside "pinch")
+    // 1. Temperatures
+    text = text.replace(/(\d+)\s*°?\s*F(?:ahrenheit)?/gi, (_, t) =>
+        `${Math.round((parseInt(t) - 32) * 5 / 9)}°C`
+    );
+
+    // 2. Smart: if source already has explicit metric in parens, prefer it
+    // "1/2 cup (70g)" → "70g (1/2 cup)"   "2 oz (56g)" → "56g (2 oz)"
+    const allUnits = Object.keys(conversions).join('|');
+    text = text.replace(
+        new RegExp(`([${fc}\\d][${fc}\\d\\s\\/]*)\\s*\\b(${allUnits})\\b\\s*\\((\\d+(?:\\.\\d+)?)\\s*(g|kg|ml|L|cm)\\)`, 'gi'),
+        (_, qty, unit, val, mUnit) => `${val}${mUnit} (${qty.trim()} ${unit})`
+    );
+
+    // 3. Regular conversions — require a number or fraction before the unit
+    // (\b boundaries prevent matching inside words like "pinch")
+    // Skip matches preceded by "(" to avoid re-processing step-2 output
     const unitPattern = Object.keys(conversions).join('|');
     const regex = new RegExp(
-        `(\\d+)\\s*([${Object.keys(fractionMap).join('')}]|\\d+\\/\\d+)?\\s*\\b(${unitPattern})\\b|([${Object.keys(fractionMap).join('')}]|\\d+\\/\\d+)\\s*\\b(${unitPattern})\\b`,
+        `(\\d+)(?:\\s+(\\d+\\/\\d+))?\\s*\\b(${unitPattern})\\b` +   // "2 cups", "1 1/2 lbs"
+        `|([${fc}])\\s*\\b(${unitPattern})\\b` +                      // "½ cup"
+        `|(\\d+\\/\\d+)\\s*\\b(${unitPattern})\\b`,                   // "1/2 cup"
         'gi'
     );
 
-    text = text.replace(regex, (match, whole, fracAfterWhole, unitAfterWhole, fracOnly, unitAfterFrac) => {
-        const fraction = fracAfterWhole || fracOnly;
-        const unit = unitAfterWhole || unitAfterFrac;
+    text = text.replace(regex, (match, wholeA, mixFracA, unitA, fracCharB, unitB, fracC, unitC, offset) => {
+        // Don't re-process content already inside parentheses
+        if (offset > 0 && text[offset - 1] === '(') return match;
+
+        const unit = unitA || unitB || unitC;
+        if (!unit) return match;
+
+        const conv = conversions[unit.toLowerCase()];
+        if (!conv) return match;
+
         let value = 0;
-
-        if (whole) {
-            value = parseInt(whole);
-        }
-
-        if (fraction) {
-            if (fractionMap[fraction]) {
-                value += fractionMap[fraction];
-            } else if (fraction && fraction.includes('/')) {
-                const [num, denom] = fraction.split('/');
-                value += parseInt(num) / parseInt(denom);
-            }
-        }
-
+        if (wholeA)   value = parseInt(wholeA);
+        if (mixFracA) { const [n, d] = mixFracA.split('/'); value += parseInt(n) / parseInt(d); }
+        if (fracCharB) value = fractionMap[fracCharB] || 1;
+        if (fracC)    { const [n, d] = fracC.split('/'); value = parseInt(n) / parseInt(d); }
         if (value === 0) value = 1;
 
-        const unitLower = unit.toLowerCase();
-        const conversion = conversions[unitLower];
+        let converted = value * conv.factor;
+        if (converted >= 100) converted = Math.round(converted / 10) * 10;
+        else if (converted >= 10) converted = Math.round(converted);
+        else converted = Math.round(converted * 10) / 10;
 
-        if (conversion) {
-            let converted = value * conversion.factor;
-            // Round nicely
-            if (converted >= 100) {
-                converted = Math.round(converted / 10) * 10;
-            } else if (converted >= 10) {
-                converted = Math.round(converted);
-            } else {
-                converted = Math.round(converted * 10) / 10;
-            }
-
-            // Convert ml to L if over 1000
-            if (conversion.metric === 'ml' && converted >= 1000) {
-                return `${(converted / 1000).toFixed(1)}L `;
-            }
-            // Convert g to kg if over 1000
-            if (conversion.metric === 'g' && converted >= 1000) {
-                return `${(converted / 1000).toFixed(1)}kg `;
-            }
-
-            return `${converted}${conversion.metric} `;
-        }
-
-        return match;
+        const orig = match.trim();
+        if (conv.metric === 'ml' && converted >= 1000) return `${(converted / 1000).toFixed(1)}L (${orig})`;
+        if (conv.metric === 'g'  && converted >= 1000) return `${(converted / 1000).toFixed(1)}kg (${orig})`;
+        return `${converted}${conv.metric} (${orig})`;
     });
 
     return text;
