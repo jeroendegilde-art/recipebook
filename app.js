@@ -2536,7 +2536,9 @@ function setupEventListeners() {
                 const doc = parser.parseFromString(html, 'text/html');
                 // Clean up noise
                 doc.querySelectorAll('script,style,nav,footer,header,aside,[class*="comment"],[class*="ad"],[id*="ad"]').forEach(el => el.remove());
-                const text = doc.body?.innerText || doc.body?.textContent || '';
+                // Use textContent (innerText is empty in DOMParser — no layout)
+                const text = (doc.body?.textContent || '').replace(/\s+/g, ' ').trim();
+                if (!text) throw new Error('Could not extract text from page');
                 recipeData = await extractRecipeWithClaude(text, recipe.source);
             } else {
                 // No URL — reconstruct text from existing data and let Claude reformat it
