@@ -2527,40 +2527,21 @@ function setupEventListeners() {
         showToast('Re-extracting recipe…');
 
         try {
-            let recipeData;
+            // Always reformat from existing data — no re-fetching needed.
+            // Claude re-splits the instructions properly from what we already have.
+            const text = [
+                `Recipe: ${recipe.title}`,
+                recipe.servings ? `Servings: ${recipe.servings}` : '',
+                '',
+                'Ingredients:',
+                ...(recipe.ingredients || []),
+                '',
+                'Instructions:',
+                ...(recipe.instructions || []).map((s, i) => `${i + 1}. ${s}`),
+                recipe.notes ? `Notes: ${recipe.notes}` : ''
+            ].join('\n');
 
-            if (recipe.source && recipe.source.startsWith('http')) {
-                // Use the same fetch path as the original import (JSON-LD + heuristics),
-                // then pass the structured result through Claude for better step splitting.
-                // This avoids text-extraction failures on JS-rendered sites.
-                const base = await fetchRecipeFromUrl(recipe.source);
-                const baseText = [
-                    `Recipe: ${base.title}`,
-                    base.servings ? `Servings: ${base.servings}` : '',
-                    '',
-                    'Ingredients:',
-                    ...(base.ingredients || []),
-                    '',
-                    'Instructions:',
-                    ...(base.instructions || []).map((s, i) => `${i + 1}. ${s}`),
-                    base.notes ? `Notes: ${base.notes}` : ''
-                ].join('\n');
-                recipeData = await extractRecipeWithClaude(baseText, recipe.source);
-            } else {
-                // No URL — reconstruct text from existing data and let Claude reformat it
-                const text = [
-                    `Recipe: ${recipe.title}`,
-                    recipe.servings ? `Servings: ${recipe.servings}` : '',
-                    '',
-                    'Ingredients:',
-                    ...(recipe.ingredients || []),
-                    '',
-                    'Instructions:',
-                    ...(recipe.instructions || []).map((s, i) => `${i + 1}. ${s}`),
-                    recipe.notes ? `\nNotes: ${recipe.notes}` : ''
-                ].join('\n');
-                recipeData = await extractRecipeWithClaude(text, '');
-            }
+            const recipeData = await extractRecipeWithClaude(text, recipe.source || '');
 
             // Preserve id, folderId, createdAt, source
             updateRecipe(currentRecipeId, {
