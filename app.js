@@ -2530,38 +2530,22 @@ function setupEventListeners() {
             let recipeData;
 
             if (recipe.source && recipe.source.startsWith('http')) {
-                // Re-fetch from the original URL
-                const html = await fetchWithProxy(recipe.source);
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-
-                // Only remove truly non-content elements (scripts/styles)
-                doc.querySelectorAll('script, style, noscript').forEach(el => el.remove());
-
-                // Prefer a focused content block if one exists
-                const contentEl =
-                    doc.querySelector('main') ||
-                    doc.querySelector('article') ||
-                    doc.querySelector('[class*="recipe"]') ||
-                    doc.querySelector('[id*="recipe"]') ||
-                    doc.body;
-
-                const text = (contentEl?.textContent || '').replace(/\s+/g, ' ').trim();
-
-                if (text) {
-                    recipeData = await extractRecipeWithClaude(text, recipe.source);
-                } else {
-                    // Fallback: use fetchRecipeFromUrl (JSON-LD/heuristic) and reformat via Claude
-                    const base = await fetchRecipeFromUrl(recipe.source);
-                    const fallbackText = [
-                        `Recipe: ${base.title}`,
-                        base.servings ? `Servings: ${base.servings}` : '',
-                        '', 'Ingredients:', ...(base.ingredients || []),
-                        '', 'Instructions:', ...(base.instructions || []).map((s, i) => `${i + 1}. ${s}`),
-                        base.notes ? `Notes: ${base.notes}` : ''
-                    ].join('\n');
-                    recipeData = await extractRecipeWithClaude(fallbackText, recipe.source);
-                }
+                // Use the same fetch path as the original import (JSON-LD + heuristics),
+                // then pass the structured result through Claude for better step splitting.
+                // This avoids text-extraction failures on JS-rendered sites.
+                const base = await fetchRecipeFromUrl(recipe.source);
+                const baseText = [
+                    `Recipe: ${base.title}`,
+                    base.servings ? `Servings: ${base.servings}` : '',
+                    '',
+                    'Ingredients:',
+                    ...(base.ingredients || []),
+                    '',
+                    'Instructions:',
+                    ...(base.instructions || []).map((s, i) => `${i + 1}. ${s}`),
+                    base.notes ? `Notes: ${base.notes}` : ''
+                ].join('\n');
+                recipeData = await extractRecipeWithClaude(baseText, recipe.source);
             } else {
                 // No URL — reconstruct text from existing data and let Claude reformat it
                 const text = [
