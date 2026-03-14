@@ -330,7 +330,7 @@ ${text.substring(0, 15000)}`;
             },
             body: JSON.stringify({
                 model: 'claude-sonnet-4-20250514',
-                max_tokens: 2048,
+                max_tokens: 4096,
                 messages: [{
                     role: 'user',
                     content: prompt
@@ -371,14 +371,23 @@ ${text.substring(0, 15000)}`;
 
         const content = data.content[0].text;
 
-        // Parse the JSON from Claude's response
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            console.error('Could not find JSON in response:', content);
-            throw new Error('Could not parse recipe from response');
+        // Parse JSON — strip markdown code fences if Claude wrapped it
+        let jsonStr;
+        const codeBlock = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        if (codeBlock) {
+            jsonStr = codeBlock[1];
+        } else {
+            // Find the outermost { ... } block
+            const start = content.indexOf('{');
+            const end = content.lastIndexOf('}');
+            if (start === -1 || end === -1 || end <= start) {
+                console.error('Could not find JSON in response:', content);
+                throw new Error('Could not parse recipe from response');
+            }
+            jsonStr = content.slice(start, end + 1);
         }
 
-        const recipe = JSON.parse(jsonMatch[0]);
+        const recipe = JSON.parse(jsonStr);
 
         if (recipe.error) {
             throw new Error(recipe.error);
@@ -3016,8 +3025,12 @@ async function migrateRecipesFromSharedCollection() {
         console.log('Migration complete!');
 
     } catch (error) {
+        // Permission denied = old collection is locked (rules updated, already migrated)
+        if (error.code === 'permission-denied' || error.message?.includes('Missing or insufficient permissions')) {
+            console.log('Migration skipped: old collection is locked');
+            return;
+        }
         console.error('Error migrating recipes:', error);
-        showToast('Failed to migrate recipes: ' + error.message, 'error');
     }
 }
 
