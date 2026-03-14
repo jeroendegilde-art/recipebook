@@ -858,6 +858,12 @@ button.recipe-card:active {
     color: #3a5a4a;
 }
 
+.section-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .ingredients-section ul {
     list-style: none;
 }
@@ -866,10 +872,20 @@ button.recipe-card:active {
     padding: 8px 0;
     border-bottom: 1px solid var(--border-color);
     font-size: 0.9375rem;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: opacity 0.2s, color 0.2s;
 }
 
 .ingredients-section li:last-child {
     border-bottom: none;
+}
+
+.ingredients-section li.checked {
+    text-decoration: line-through;
+    opacity: 0.45;
+    color: var(--text-secondary);
 }
 
 .instructions-section ol {

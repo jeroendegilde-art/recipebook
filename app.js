@@ -46,6 +46,7 @@ const elements = {
     servingsDisplay: document.getElementById('servingsDisplay'),
     servingsText: document.getElementById('servingsText'),
     copyIngredientsBtn: document.getElementById('copyIngredientsBtn'),
+    resetChecklistBtn: document.getElementById('resetChecklistBtn'),
     ingredientsList: document.getElementById('ingredientsList'),
     instructionsList: document.getElementById('instructionsList'),
     notesSection: document.getElementById('notesSection'),
@@ -176,12 +177,6 @@ const conversions = {
     // Volume
     'cup': { metric: 'ml', factor: 237 },
     'cups': { metric: 'ml', factor: 237 },
-    'tablespoon': { metric: 'ml', factor: 15 },
-    'tablespoons': { metric: 'ml', factor: 15 },
-    'tbsp': { metric: 'ml', factor: 15 },
-    'teaspoon': { metric: 'ml', factor: 5 },
-    'teaspoons': { metric: 'ml', factor: 5 },
-    'tsp': { metric: 'ml', factor: 5 },
     'fluid ounce': { metric: 'ml', factor: 30 },
     'fluid ounces': { metric: 'ml', factor: 30 },
     'fl oz': { metric: 'ml', factor: 30 },
@@ -299,7 +294,7 @@ Return a JSON object with exactly this structure:
 }
 
 IMPORTANT RULES:
-1. Convert ALL measurements to metric (cups to ml, oz to grams, F to C, etc.)
+1. Convert measurements: oz/lbs to grams, cups/pints/quarts to ml, °F to °C. Keep teaspoons and tablespoons (tsp/tbsp) as-is.
 2. Each ingredient should be a single line with quantity and item
 3. Each instruction should be a complete step, not fragments
 4. Remove any step numbers from instructions (just the text)
@@ -447,7 +442,7 @@ Return a JSON object with exactly this structure:
 }
 
 IMPORTANT RULES:
-1. Convert ALL measurements to metric (cups to ml, oz to grams, F to C, etc.)
+1. Convert measurements: oz/lbs to grams, cups/pints/quarts to ml, °F to °C. Keep teaspoons and tablespoons (tsp/tbsp) as-is.
 2. Each ingredient should be a single line with quantity and item
 3. Each instruction should be a complete step
 4. Remove any step numbers from instructions (just the text)
@@ -2074,9 +2069,48 @@ function selectRecipe(id) {
         elements.servingsDisplay.style.display = 'none';
     }
 
-    elements.ingredientsList.innerHTML = recipe.ingredients
-        .map(ing => `<li>${escapeHtml(ing)}</li>`)
-        .join('');
+    // Load checked state for this recipe
+    const checkedKey = `recipeBookChecked_${id}`;
+    let checkedItems = JSON.parse(localStorage.getItem(checkedKey) || '[]');
+
+    const renderIngredients = () => {
+        elements.ingredientsList.innerHTML = recipe.ingredients
+            .map((ing, i) => {
+                const isChecked = checkedItems.includes(i);
+                return `<li class="ingredient-item${isChecked ? ' checked' : ''}" data-index="${i}">${escapeHtml(ing)}</li>`;
+            })
+            .join('');
+        // Show reset button only when something is checked
+        if (elements.resetChecklistBtn) {
+            elements.resetChecklistBtn.style.display = checkedItems.length > 0 ? '' : 'none';
+        }
+    };
+
+    renderIngredients();
+
+    // Ingredient tap-to-check
+    elements.ingredientsList.onclick = (e) => {
+        const li = e.target.closest('.ingredient-item');
+        if (!li) return;
+        const idx = parseInt(li.dataset.index, 10);
+        const pos = checkedItems.indexOf(idx);
+        if (pos === -1) checkedItems.push(idx);
+        else checkedItems.splice(pos, 1);
+        localStorage.setItem(checkedKey, JSON.stringify(checkedItems));
+        li.classList.toggle('checked', pos === -1);
+        if (elements.resetChecklistBtn) {
+            elements.resetChecklistBtn.style.display = checkedItems.length > 0 ? '' : 'none';
+        }
+    };
+
+    // Reset checklist button
+    if (elements.resetChecklistBtn) {
+        elements.resetChecklistBtn.onclick = () => {
+            checkedItems = [];
+            localStorage.removeItem(checkedKey);
+            renderIngredients();
+        };
+    }
 
     elements.instructionsList.innerHTML = recipe.instructions
         .map(inst => `<li>${escapeHtml(inst)}</li>`)

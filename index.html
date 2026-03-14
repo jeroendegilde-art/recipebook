@@ -228,13 +228,22 @@
                     <section class="ingredients-section">
                         <div class="section-header">
                             <h3>Ingredients</h3>
-                            <button class="btn-copy" id="copyIngredientsBtn" title="Copy ingredients to clipboard">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                </svg>
-                                <span class="copy-text">Copy</span>
-                            </button>
+                            <div class="section-header-actions">
+                                <button class="btn-copy btn-reset-checklist" id="resetChecklistBtn" title="Uncheck all ingredients" style="display:none;">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                        <polyline points="1 4 1 10 7 10"></polyline>
+                                        <path d="M3.51 15a9 9 0 1 0 .49-3.75"></path>
+                                    </svg>
+                                    <span class="copy-text">Reset</span>
+                                </button>
+                                <button class="btn-copy" id="copyIngredientsBtn" title="Copy ingredients to clipboard">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                    <span class="copy-text">Copy</span>
+                                </button>
+                            </div>
                         </div>
                         <ul id="ingredientsList"></ul>
                     </section>
