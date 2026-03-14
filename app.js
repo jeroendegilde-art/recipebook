@@ -36,6 +36,7 @@ const elements = {
     toggleTheme: document.getElementById('toggleTheme'),
     syncBtn: document.getElementById('syncBtn'),
     settingsBtn: document.getElementById('settingsBtn'),
+    rescanRecipeBtn: document.getElementById('rescanRecipeBtn'),
     editRecipeBtn: document.getElementById('editRecipeBtn'),
     deleteRecipeBtn: document.getElementById('deleteRecipeBtn'),
 
@@ -295,14 +296,20 @@ Return a JSON object with exactly this structure:
 
 IMPORTANT RULES:
 1. Convert measurements: oz/lbs to grams, cups/pints/quarts to ml, °F to °C. Keep teaspoons and tablespoons (tsp/tbsp) as-is.
-2. Each ingredient should be a single line with quantity and item
-3. Each instruction should be a complete step, not fragments
-4. Remove any step numbers from instructions (just the text)
+2. Each ingredient should be a single line with quantity and item.
+3. INSTRUCTIONS — split into individual, clearly separated steps:
+   - Each array item = exactly ONE cooking action (mix, bake, chop, fry, rest, etc.)
+   - If the source already has numbered/lettered steps, keep each as its own item — never merge them
+   - If steps are written as a long paragraph, split at logical action boundaries (new verb, new phase, change of heat, adding new ingredient group, time marker like "meanwhile" or "then")
+   - Never combine two distinct actions into one step
+   - Keep each step self-contained and clear
+   - Typical recipes have 6–15 steps; very simple ones may have fewer
+4. Remove any step numbers or bullets from the instruction text (just the prose).
 5. CRITICAL: Extract the servings/yield - look for "serves X", "makes X", "X servings", "X portions", "yield: X", "for X people". Format as "X servings" or "Makes X cookies" etc.
-6. If servings is not explicitly stated, try to infer from context or use ""
-7. Ignore prep time, cook time, ratings, comments, author info
-8. If you can't find a valid recipe, return {"error": "No recipe found"}
-9. Return ONLY the JSON object, no other text
+6. If servings is not explicitly stated, try to infer from context or use "".
+7. Ignore prep time, cook time, ratings, comments, author info.
+8. If you can't find a valid recipe, return {"error": "No recipe found"}.
+9. Return ONLY the JSON object, no other text.
 
 TEXT TO EXTRACT FROM:
 ${text.substring(0, 15000)}`;
@@ -443,13 +450,16 @@ Return a JSON object with exactly this structure:
 
 IMPORTANT RULES:
 1. Convert measurements: oz/lbs to grams, cups/pints/quarts to ml, °F to °C. Keep teaspoons and tablespoons (tsp/tbsp) as-is.
-2. Each ingredient should be a single line with quantity and item
-3. Each instruction should be a complete step
-4. Remove any step numbers from instructions (just the text)
-5. Extract the servings/yield if shown
-6. Combine information from all photos into one complete recipe
-7. If you can't read parts clearly, do your best to interpret them
-8. Return ONLY the JSON object, no other text`;
+2. Each ingredient should be a single line with quantity and item.
+3. INSTRUCTIONS — split into individual, clearly separated steps:
+   - Each array item = exactly ONE cooking action
+   - Never merge two distinct actions into one step
+   - Split at logical boundaries: new verb, new phase, change of heat, time marker like "meanwhile"
+4. Remove any step numbers or bullets from the instruction text (just the prose).
+5. Extract the servings/yield if shown.
+6. Combine information from all photos into one complete recipe.
+7. If you can't read parts clearly, do your best to interpret them.
+8. Return ONLY the JSON object, no other text.`;
 
     try {
         console.log('Sending photos to Claude API...');
@@ -2490,6 +2500,69 @@ function setupEventListeners() {
         renderRecipeList();
         selectRecipe(recipe.id);
         showToast('Recipe added successfully!');
+    });
+
+    // Rescan recipe with AI
+    elements.rescanRecipeBtn.addEventListener('click', async () => {
+        const recipe = getRecipe(currentRecipeId);
+        if (!recipe) return;
+
+        if (!claudeApiKey) {
+            showToast('Add your Claude API key in Settings first', 'error');
+            return;
+        }
+
+        if (!confirm('Re-extract this recipe with AI? This will overwrite the current title, ingredients, instructions and notes.')) return;
+
+        setButtonLoading(elements.rescanRecipeBtn, true);
+        showToast('Re-extracting recipe…');
+
+        try {
+            let recipeData;
+
+            if (recipe.source && recipe.source.startsWith('http')) {
+                // Re-fetch from the original URL
+                const html = await fetchWithProxy(recipe.source);
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                // Clean up noise
+                doc.querySelectorAll('script,style,nav,footer,header,aside,[class*="comment"],[class*="ad"],[id*="ad"]').forEach(el => el.remove());
+                const text = doc.body?.innerText || doc.body?.textContent || '';
+                recipeData = await extractRecipeWithClaude(text, recipe.source);
+            } else {
+                // No URL — reconstruct text from existing data and let Claude reformat it
+                const text = [
+                    `Recipe: ${recipe.title}`,
+                    recipe.servings ? `Servings: ${recipe.servings}` : '',
+                    '',
+                    'Ingredients:',
+                    ...(recipe.ingredients || []),
+                    '',
+                    'Instructions:',
+                    ...(recipe.instructions || []).map((s, i) => `${i + 1}. ${s}`),
+                    recipe.notes ? `\nNotes: ${recipe.notes}` : ''
+                ].join('\n');
+                recipeData = await extractRecipeWithClaude(text, '');
+            }
+
+            // Preserve id, folderId, createdAt, source
+            updateRecipe(currentRecipeId, {
+                title: recipeData.title || recipe.title,
+                ingredients: recipeData.ingredients,
+                instructions: recipeData.instructions,
+                notes: recipeData.notes,
+                servings: recipeData.servings || recipe.servings
+            });
+
+            renderRecipeList();
+            selectRecipe(currentRecipeId);
+            showToast('Recipe updated!');
+
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            setButtonLoading(elements.rescanRecipeBtn, false);
+        }
     });
 
     // Edit recipe
