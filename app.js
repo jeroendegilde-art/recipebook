@@ -1713,6 +1713,17 @@ function renderFoldersList() {
             currentFolderId = btn.dataset.folder;
             renderFoldersList();
             renderRecipeList(elements.searchInput.value);
+            renderRecipeGrid(elements.homeSearchInput?.value || '');
+            // If the currently open recipe isn't in this folder, close it
+            if (currentRecipeId) {
+                const recipe = getRecipe(currentRecipeId);
+                if (currentFolderId !== 'all' && recipe?.folderId !== currentFolderId) {
+                    elements.recipeDetail.style.display = 'none';
+                    elements.recipeHome.style.display = 'block';
+                    currentRecipeId = null;
+                    hideRecipeStickyHeader();
+                }
+            }
         });
 
         // Long press or right-click to edit folder (not "all")

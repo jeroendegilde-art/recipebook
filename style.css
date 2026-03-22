@@ -1730,6 +1730,11 @@ button.recipe-card:active {
         gap: 12px;
     }
 
+    .folder-picker-dropdown {
+        left: 0;
+        right: auto;
+    }
+
     .recipe-title-row h2 {
         font-size: 1.5rem;
     }
