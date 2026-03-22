@@ -170,6 +170,7 @@ const elements = {
     recipeHome: document.getElementById('recipeHome'),
     recipeGrid: document.getElementById('recipeGrid'),
     homeSearchInput: document.getElementById('homeSearchInput'),
+    homeTitle: document.getElementById('homeTitle'),
     backToGridBtn: document.getElementById('backToGridBtn'),
     mobileHeader: document.getElementById('mobileHeader'),
     recipeStickyHeader: document.getElementById('recipeStickyHeader'),
@@ -2010,8 +2011,16 @@ function showHomeView() {
     renderRecipeGrid();
 }
 
+function getCurrentFolderName() {
+    if (currentFolderId === 'all') return 'My Recipes';
+    const folder = folders.find(f => f.id === currentFolderId);
+    return folder ? folder.name : 'My Recipes';
+}
+
 // Render the recipe grid on home page
 function renderRecipeGrid(filter = '') {
+    if (elements.homeTitle) elements.homeTitle.textContent = getCurrentFolderName();
+
     let filteredRecipes = filter
         ? recipes.filter(r => r.title.toLowerCase().includes(filter.toLowerCase()))
         : recipes;
@@ -2087,6 +2096,8 @@ function renderRecipeGrid(filter = '') {
 }
 
 function renderRecipeList(filter = '') {
+    if (elements.homeTitle) elements.homeTitle.textContent = getCurrentFolderName();
+
     // Filter by search term
     let filteredRecipes = filter
         ? recipes.filter(r => r.title.toLowerCase().includes(filter.toLowerCase()))
@@ -2109,6 +2120,7 @@ function renderRecipeList(filter = '') {
         elements.recipeList.innerHTML = '<div class="empty-folder">No recipes in this folder</div>';
         elements.emptyState.style.display = 'none';
         elements.recipeDetail.style.display = 'none';
+        currentRecipeId = null;
         return;
     }
 
