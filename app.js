@@ -1399,9 +1399,12 @@ async function syncRecipeToFirebase(recipe) {
 
     try {
         const path = getRecipesPath();
-        console.log('Syncing recipe to path:', path.join('/'), recipe.id);
-        const docRef = window.firebaseDoc(window.firebaseDb, ...path, recipe.id);
-        await window.firebaseSetDoc(docRef, recipe);
+        // Firestore rejects undefined values — strip them before syncing
+        const clean = Object.fromEntries(
+            Object.entries(recipe).filter(([, v]) => v !== undefined)
+        );
+        const docRef = window.firebaseDoc(window.firebaseDb, ...path, clean.id);
+        await window.firebaseSetDoc(docRef, clean);
         console.log('Recipe synced to Firebase:', recipe.id);
     } catch (error) {
         console.error('Error syncing recipe to Firebase:', error);
