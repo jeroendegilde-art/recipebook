@@ -171,7 +171,10 @@ const elements = {
     recipeGrid: document.getElementById('recipeGrid'),
     homeSearchInput: document.getElementById('homeSearchInput'),
     backToGridBtn: document.getElementById('backToGridBtn'),
-    backToGridBtnOverlay: document.getElementById('backToGridBtnOverlay')
+    backToGridBtnOverlay: document.getElementById('backToGridBtnOverlay'),
+    folderPickerBtn: document.getElementById('folderPickerBtn'),
+    folderPickerDropdown: document.getElementById('folderPickerDropdown'),
+    folderPickerWrap: document.getElementById('folderPickerWrap')
 };
 
 // ============================================
@@ -2608,6 +2611,52 @@ function setupEventListeners() {
         renderRecipeList();
         selectRecipe(recipe.id);
         showToast('Recipe added successfully!');
+    });
+
+    // Folder picker
+    elements.folderPickerBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const dropdown = elements.folderPickerDropdown;
+        if (dropdown.style.display !== 'none') {
+            dropdown.style.display = 'none';
+            return;
+        }
+
+        const recipe = getRecipe(currentRecipeId);
+        if (!recipe) return;
+
+        // Build options
+        const noFolderIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+        const folderIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+
+        let html = `<button class="folder-picker-option ${!recipe.folderId ? 'active' : ''}" data-folder-id="">
+            ${noFolderIcon} No folder
+        </button>`;
+        folders.forEach(f => {
+            html += `<button class="folder-picker-option ${recipe.folderId === f.id ? 'active' : ''}" data-folder-id="${f.id}">
+                ${folderIcon} ${escapeHtml(f.name)}
+            </button>`;
+        });
+
+        dropdown.innerHTML = html;
+        dropdown.style.display = 'block';
+
+        dropdown.querySelectorAll('.folder-picker-option').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const folderId = btn.dataset.folderId;
+                updateRecipe(currentRecipeId, { folderId });
+                renderRecipeList(elements.searchInput?.value);
+                dropdown.style.display = 'none';
+                showToast(folderId ? `Moved to ${folders.find(f => f.id === folderId)?.name}` : 'Removed from folder');
+            });
+        });
+    });
+
+    // Close folder picker when clicking outside
+    document.addEventListener('click', (e) => {
+        if (elements.folderPickerWrap && !elements.folderPickerWrap.contains(e.target)) {
+            if (elements.folderPickerDropdown) elements.folderPickerDropdown.style.display = 'none';
+        }
     });
 
     // Rescan recipe with AI

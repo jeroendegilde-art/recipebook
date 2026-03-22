@@ -764,6 +764,59 @@ button.recipe-card:active {
     flex-shrink: 0;
 }
 
+.folder-picker-wrap {
+    position: relative;
+}
+
+.folder-picker-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    min-width: 180px;
+    z-index: 200;
+    overflow: hidden;
+    padding: 4px 0;
+}
+
+.folder-picker-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.folder-picker-option:hover {
+    background: var(--hover-bg);
+}
+
+.folder-picker-option.active {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.folder-picker-option svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+
+.folder-picker-option.active svg {
+    opacity: 1;
+}
+
 .recipe-source {
     display: inline-block;
     margin-top: 8px;

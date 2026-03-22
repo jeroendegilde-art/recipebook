@@ -10,7 +10,7 @@
     <script>
         // Force reload when a new version is deployed, even if HTML is cached
         (function() {
-            var VERSION = '20260322e';
+            var VERSION = '20260322f';
             if (localStorage.getItem('rbVersion') !== VERSION) {
                 localStorage.setItem('rbVersion', VERSION);
                 if (!location.search.includes(VERSION)) {
@@ -19,7 +19,7 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260322e">
+    <link rel="stylesheet" href="style.css?v=20260322f">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -213,6 +213,14 @@
                     <div class="recipe-title-row">
                         <h2 id="recipeTitle"></h2>
                         <div class="recipe-actions">
+                            <div class="folder-picker-wrap" id="folderPickerWrap">
+                                <button class="btn-icon" id="folderPickerBtn" title="Move to folder">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                    </svg>
+                                </button>
+                                <div class="folder-picker-dropdown" id="folderPickerDropdown" style="display:none"></div>
+                            </div>
                             <button class="btn-icon" id="shareRecipeBtn" title="Share as PDF">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
@@ -677,6 +685,6 @@
         }
     </script>
 
-    <script src="app.js?v=20260322e"></script>
+    <script src="app.js?v=20260322f"></script>
 </body>
 </html>
