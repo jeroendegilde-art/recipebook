@@ -10,7 +10,7 @@
     <script>
         // Force reload when a new version is deployed, even if HTML is cached
         (function() {
-            var VERSION = '20260322h';
+            var VERSION = '20260322i';
             if (localStorage.getItem('rbVersion') !== VERSION) {
                 localStorage.setItem('rbVersion', VERSION);
                 if (!location.search.includes(VERSION)) {
@@ -19,7 +19,7 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260322h">
+    <link rel="stylesheet" href="style.css?v=20260322i">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -194,15 +194,15 @@
             </div>
 
             <article class="recipe-detail" id="recipeDetail" style="display: none;">
-                <div id="recipeImageWrap" class="recipe-image-wrap" style="display:none">
-                    <img id="recipeImage" class="recipe-image" src="" alt="" onerror="console.log('[Image] Load failed (onerror) for:', this.src); this.parentElement.style.display='none'">
-                </div>
                 <button class="back-to-grid" id="backToGridBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M19 12H5M12 19l-7-7 7-7"></path>
                     </svg>
                     Back to Recipes
                 </button>
+                <div id="recipeImageWrap" class="recipe-image-wrap" style="display:none">
+                    <img id="recipeImage" class="recipe-image" src="" alt="" onerror="console.log('[Image] Load failed (onerror) for:', this.src); this.parentElement.style.display='none'">
+                </div>
                 <div class="recipe-header">
                     <div class="recipe-title-row">
                         <h2 id="recipeTitle"></h2>
@@ -679,6 +679,6 @@
         }
     </script>
 
-    <script src="app.js?v=20260322h"></script>
+    <script src="app.js?v=20260322i"></script>
 </body>
 </html>
