@@ -170,7 +170,8 @@ const elements = {
     recipeHome: document.getElementById('recipeHome'),
     recipeGrid: document.getElementById('recipeGrid'),
     homeSearchInput: document.getElementById('homeSearchInput'),
-    backToGridBtn: document.getElementById('backToGridBtn')
+    backToGridBtn: document.getElementById('backToGridBtn'),
+    backToGridBtnOverlay: document.getElementById('backToGridBtnOverlay')
 };
 
 // ============================================
@@ -2156,8 +2157,12 @@ function selectRecipe(id) {
             elements.recipeImage.src = recipe.image;
             elements.recipeImage.alt = recipe.title;
             elements.recipeImageWrap.style.display = 'block';
+            // Hide the plain back button — overlay button on image is used instead
+            if (elements.backToGridBtn) elements.backToGridBtn.style.display = 'none';
         } else {
             elements.recipeImageWrap.style.display = 'none';
+            // Show plain back button when there's no image
+            if (elements.backToGridBtn) elements.backToGridBtn.style.display = '';
         }
     }
 
@@ -2868,6 +2873,10 @@ function setupEventListeners() {
 
     // Back to grid button
     elements.backToGridBtn?.addEventListener('click', () => {
+        showHomeView();
+    });
+
+    elements.backToGridBtnOverlay?.addEventListener('click', () => {
         showHomeView();
     });
 
