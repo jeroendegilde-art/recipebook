@@ -850,6 +850,36 @@ button.recipe-card:active {
     padding: 4px 0;
 }
 
+/* Favorite button */
+.btn-favorite svg {
+    transition: fill 0.15s ease, stroke 0.15s ease;
+}
+.btn-favorite.is-favorite svg {
+    fill: #f5a623;
+    stroke: #f5a623;
+}
+
+/* Drag handle */
+.drag-handle {
+    display: flex;
+    align-items: center;
+    padding: 0 4px 0 0;
+    color: var(--text-secondary);
+    opacity: 0.35;
+    cursor: grab;
+    flex-shrink: 0;
+    touch-action: none;
+}
+.drag-handle:active { cursor: grabbing; }
+.drag-handle svg { width: 14px; height: 14px; pointer-events: none; }
+
+/* Dragging state */
+.sidebar-item-dragging {
+    opacity: 0.4;
+}
+.sidebar-item-drag-above { box-shadow: 0 -2px 0 var(--accent); }
+.sidebar-item-drag-below { box-shadow: 0 2px 0 var(--accent); }
+
 .folder-picker-option {
     display: flex;
     align-items: center;

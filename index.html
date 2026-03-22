@@ -10,7 +10,7 @@
     <script>
         // Force reload when a new version is deployed, even if HTML is cached
         (function() {
-            var VERSION = '20260322o';
+            var VERSION = '20260322p';
             if (localStorage.getItem('rbVersion') !== VERSION) {
                 localStorage.setItem('rbVersion', VERSION);
                 if (!location.search.includes(VERSION)) {
@@ -19,7 +19,7 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260322o">
+    <link rel="stylesheet" href="style.css?v=20260322p">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -225,6 +225,11 @@
                                 </button>
                                 <div class="folder-picker-dropdown" id="folderPickerDropdown" style="display:none"></div>
                             </div>
+                            <button class="btn-icon btn-favorite" id="favoriteBtn" title="Add to favorites">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                                </svg>
+                            </button>
                             <button class="btn-icon" id="shareRecipeBtn" title="Share as PDF">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
@@ -689,6 +694,6 @@
         }
     </script>
 
-    <script src="app.js?v=20260322o"></script>
+    <script src="app.js?v=20260322p"></script>
 </body>
 </html>

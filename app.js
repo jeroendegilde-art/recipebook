@@ -171,6 +171,7 @@ const elements = {
     recipeGrid: document.getElementById('recipeGrid'),
     homeSearchInput: document.getElementById('homeSearchInput'),
     homeTitle: document.getElementById('homeTitle'),
+    favoriteBtn: document.getElementById('favoriteBtn'),
     backToGridBtn: document.getElementById('backToGridBtn'),
     mobileHeader: document.getElementById('mobileHeader'),
     recipeStickyHeader: document.getElementById('recipeStickyHeader'),
@@ -1392,6 +1393,78 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
+function toggleFavorite(id) {
+    const recipe = getRecipe(id);
+    if (!recipe) return;
+    updateRecipe(id, { favorite: !recipe.favorite });
+    renderFoldersList();
+    if (elements.favoriteBtn) {
+        elements.favoriteBtn.classList.toggle('is-favorite', !recipe.favorite);
+    }
+}
+
+// Pointer-based drag-to-reorder (works on mouse + touch)
+function makeSortable(listEl, getDataArray, setDataArray, onSorted) {
+    let dragEl = null, startIdx = -1;
+
+    listEl.addEventListener('pointerdown', e => {
+        const handle = e.target.closest('.drag-handle');
+        if (!handle) return;
+        dragEl = handle.closest('[data-sort-idx]');
+        if (!dragEl) return;
+        startIdx = parseInt(dragEl.dataset.sortIdx);
+        dragEl.setPointerCapture(e.pointerId);
+        dragEl.classList.add('sidebar-item-dragging');
+        e.preventDefault();
+    });
+
+    listEl.addEventListener('pointermove', e => {
+        if (!dragEl) return;
+        const items = Array.from(listEl.querySelectorAll('[data-sort-idx]'));
+        const y = e.clientY;
+        let target = null, before = false;
+        for (const item of items) {
+            if (item === dragEl) continue;
+            const rect = item.getBoundingClientRect();
+            if (y < rect.bottom) {
+                target = item;
+                before = y < rect.top + rect.height / 2;
+                break;
+            }
+        }
+        items.forEach(i => i.classList.remove('sidebar-item-drag-above', 'sidebar-item-drag-below'));
+        if (target) target.classList.add(before ? 'sidebar-item-drag-above' : 'sidebar-item-drag-below');
+    });
+
+    listEl.addEventListener('pointerup', e => {
+        if (!dragEl) return;
+        const items = Array.from(listEl.querySelectorAll('[data-sort-idx]'));
+        items.forEach(i => i.classList.remove('sidebar-item-drag-above', 'sidebar-item-drag-below'));
+        dragEl.classList.remove('sidebar-item-dragging');
+
+        // Find drop target
+        const y = e.clientY;
+        let endIdx = startIdx;
+        for (const item of items) {
+            if (item === dragEl) continue;
+            const rect = item.getBoundingClientRect();
+            const idx = parseInt(item.dataset.sortIdx);
+            if (y < rect.top + rect.height / 2) { endIdx = idx; break; }
+            endIdx = idx + 1;
+        }
+
+        dragEl = null;
+        if (endIdx === startIdx) return;
+
+        const arr = getDataArray();
+        const moved = arr.splice(startIdx, 1)[0];
+        const insertAt = endIdx > startIdx ? endIdx - 1 : endIdx;
+        arr.splice(insertAt, 0, moved);
+        setDataArray(arr);
+        onSorted();
+    });
+}
+
 // Firebase sync functions
 function getRecipesPath() {
     // If user is logged in, use user-specific path
@@ -1680,6 +1753,8 @@ function deleteFolder(id) {
 
 function renderFoldersList() {
     const allRecipesCount = recipes.length;
+    const favCount = recipes.filter(r => r.favorite).length;
+    const dragHandleSvg = `<span class="drag-handle" title="Drag to reorder"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></span>`;
 
     let html = `
         <button class="folder-item ${currentFolderId === 'all' ? 'active' : ''}" data-folder="all">
@@ -1690,12 +1765,20 @@ function renderFoldersList() {
             All Recipes
             <span class="folder-count">${allRecipesCount}</span>
         </button>
+        <button class="folder-item ${currentFolderId === 'favorites' ? 'active' : ''}" data-folder="favorites">
+            <svg viewBox="0 0 24 24" fill="${currentFolderId === 'favorites' ? '#f5a623' : 'none'}" stroke="${currentFolderId === 'favorites' ? '#f5a623' : 'currentColor'}" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            Favorites
+            <span class="folder-count">${favCount}</span>
+        </button>
     `;
 
-    folders.forEach(folder => {
+    folders.forEach((folder, idx) => {
         const count = recipes.filter(r => r.folderId === folder.id).length;
         html += `
-            <button class="folder-item ${currentFolderId === folder.id ? 'active' : ''}" data-folder="${folder.id}">
+            <button class="folder-item ${currentFolderId === folder.id ? 'active' : ''}" data-folder="${folder.id}" data-sort-idx="${idx}">
+                ${dragHandleSvg}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                 </svg>
@@ -1707,6 +1790,14 @@ function renderFoldersList() {
 
     elements.foldersList.innerHTML = html;
 
+    // Drag-to-reorder folders
+    makeSortable(
+        elements.foldersList,
+        () => folders,
+        arr => { folders.splice(0, folders.length, ...arr); saveFolders(); },
+        () => renderFoldersList()
+    );
+
     // Add click handlers
     elements.foldersList.querySelectorAll('.folder-item').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1717,7 +1808,8 @@ function renderFoldersList() {
             // If the currently open recipe isn't in this folder, close it
             if (currentRecipeId) {
                 const recipe = getRecipe(currentRecipeId);
-                if (currentFolderId !== 'all' && recipe?.folderId !== currentFolderId) {
+                const notInFolder = currentFolderId === 'favorites' ? !recipe?.favorite : recipe?.folderId !== currentFolderId;
+                if (currentFolderId !== 'all' && notInFolder) {
                     elements.recipeDetail.style.display = 'none';
                     elements.recipeHome.style.display = 'block';
                     currentRecipeId = null;
@@ -2024,6 +2116,7 @@ function showHomeView() {
 
 function getCurrentFolderName() {
     if (currentFolderId === 'all') return 'My Recipes';
+    if (currentFolderId === 'favorites') return 'Favorites';
     const folder = folders.find(f => f.id === currentFolderId);
     return folder ? folder.name : 'My Recipes';
 }
@@ -2036,8 +2129,10 @@ function renderRecipeGrid(filter = '') {
         ? recipes.filter(r => r.title.toLowerCase().includes(filter.toLowerCase()))
         : recipes;
 
-    // Filter by folder if not "all"
-    if (currentFolderId !== 'all') {
+    // Filter by folder / favorites
+    if (currentFolderId === 'favorites') {
+        filteredRecipes = filteredRecipes.filter(r => r.favorite);
+    } else if (currentFolderId !== 'all') {
         filteredRecipes = filteredRecipes.filter(r => r.folderId === currentFolderId);
     }
 
@@ -2114,8 +2209,10 @@ function renderRecipeList(filter = '') {
         ? recipes.filter(r => r.title.toLowerCase().includes(filter.toLowerCase()))
         : recipes;
 
-    // Filter by folder
-    if (currentFolderId !== 'all') {
+    // Filter by folder / favorites
+    if (currentFolderId === 'favorites') {
+        filteredRecipes = filteredRecipes.filter(r => r.favorite);
+    } else if (currentFolderId !== 'all') {
         filteredRecipes = filteredRecipes.filter(r => r.folderId === currentFolderId);
     }
 
@@ -2137,8 +2234,11 @@ function renderRecipeList(filter = '') {
 
     elements.emptyState.style.display = 'none';
 
-    elements.recipeList.innerHTML = filteredRecipes.map(recipe => `
-        <button class="recipe-item ${recipe.id === currentRecipeId ? 'active' : ''}" data-id="${recipe.id}">
+    const dragHandleSvg = `<span class="drag-handle" title="Drag to reorder"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></span>`;
+
+    elements.recipeList.innerHTML = filteredRecipes.map((recipe, idx) => `
+        <button class="recipe-item ${recipe.id === currentRecipeId ? 'active' : ''}" data-id="${recipe.id}" data-sort-idx="${idx}">
+            ${currentFolderId === 'all' ? dragHandleSvg : ''}
             <span class="recipe-item-title">${escapeHtml(recipe.title)}</span>
             <span class="recipe-item-meta">${recipe.ingredients.length} ingredients</span>
         </button>
@@ -2147,17 +2247,27 @@ function renderRecipeList(filter = '') {
     // Add click handlers directly to each item
     elements.recipeList.querySelectorAll('.recipe-item').forEach(item => {
         item.onclick = function(e) {
+            if (e.target.closest('.drag-handle')) return;
             e.preventDefault();
             const recipeId = this.dataset.id;
             if (recipeId) {
                 selectRecipe(recipeId);
-                // Close sidebar on mobile
                 if (window.innerWidth <= 768) {
                     elements.sidebar.classList.remove('open');
                 }
             }
         };
     });
+
+    // Drag-to-reorder recipes (only in "all" view to avoid confusion)
+    if (currentFolderId === 'all') {
+        makeSortable(
+            elements.recipeList,
+            () => recipes,
+            arr => { recipes.splice(0, recipes.length, ...arr); saveRecipes(); },
+            () => renderRecipeList(filter)
+        );
+    }
 
     // Also update the grid view
     renderRecipeGrid(filter);
@@ -2196,6 +2306,11 @@ function selectRecipe(id) {
         elements.recipeSource.style.display = 'inline';
     } else {
         elements.recipeSource.style.display = 'none';
+    }
+
+    // Favorite button state
+    if (elements.favoriteBtn) {
+        elements.favoriteBtn.classList.toggle('is-favorite', !!recipe.favorite);
     }
 
     // Show recipe image
@@ -2962,6 +3077,10 @@ function setupEventListeners() {
     });
 
     // Back to grid button
+    elements.favoriteBtn?.addEventListener('click', () => {
+        if (currentRecipeId) toggleFavorite(currentRecipeId);
+    });
+
     elements.backToGridBtn?.addEventListener('click', () => {
         showHomeView();
     });
