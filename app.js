@@ -171,6 +171,11 @@ const elements = {
     recipeGrid: document.getElementById('recipeGrid'),
     homeSearchInput: document.getElementById('homeSearchInput'),
     backToGridBtn: document.getElementById('backToGridBtn'),
+    mobileHeader: document.getElementById('mobileHeader'),
+    recipeStickyHeader: document.getElementById('recipeStickyHeader'),
+    recipeStickyBack: document.getElementById('recipeStickyBack'),
+    recipeStickyTitle: document.getElementById('recipeStickyTitle'),
+    imageBackBtn: document.getElementById('imageBackBtn'),
     folderPickerBtn: document.getElementById('folderPickerBtn'),
     folderPickerDropdown: document.getElementById('folderPickerDropdown'),
     folderPickerWrap: document.getElementById('folderPickerWrap')
@@ -1985,7 +1990,19 @@ function showToast(message, type = 'success') {
 }
 
 // Show home grid view
+function showRecipeStickyHeader(title) {
+    if (elements.recipeStickyTitle) elements.recipeStickyTitle.textContent = title;
+    if (elements.recipeStickyHeader) elements.recipeStickyHeader.classList.add('visible');
+    if (elements.mobileHeader) elements.mobileHeader.style.visibility = 'hidden';
+}
+
+function hideRecipeStickyHeader() {
+    if (elements.recipeStickyHeader) elements.recipeStickyHeader.classList.remove('visible');
+    if (elements.mobileHeader) elements.mobileHeader.style.visibility = '';
+}
+
 function showHomeView() {
+    hideRecipeStickyHeader();
     elements.recipeHome.style.display = 'block';
     elements.recipeDetail.style.display = 'none';
     elements.emptyState.style.display = 'none';
@@ -2140,6 +2157,12 @@ function selectRecipe(id) {
         elements.recipeHome.style.display = 'none';
     }
     elements.recipeDetail.style.display = 'block';
+
+    // Scroll to top when opening a recipe
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    // Show sticky header immediately (hidden until scroll)
+    showRecipeStickyHeader(recipe.title);
 
     // Update content
     elements.recipeTitle.textContent = recipe.title;
@@ -2919,6 +2942,30 @@ function setupEventListeners() {
     elements.backToGridBtn?.addEventListener('click', () => {
         showHomeView();
     });
+
+    elements.recipeStickyBack?.addEventListener('click', () => {
+        showHomeView();
+    });
+
+    elements.imageBackBtn?.addEventListener('click', () => {
+        showHomeView();
+    });
+
+    // IntersectionObserver: hide sticky title text until user scrolls past the big title
+    // The sticky header is always visible; we just animate the title in/out
+    const titleObserver = new IntersectionObserver(
+        (entries) => {
+            entries.forEach(entry => {
+                if (elements.recipeStickyTitle) {
+                    elements.recipeStickyTitle.style.opacity = entry.isIntersecting ? '0' : '1';
+                }
+            });
+        },
+        { threshold: 0, rootMargin: '-56px 0px 0px 0px' }
+    );
+    if (elements.recipeTitle) {
+        titleObserver.observe(elements.recipeTitle);
+    }
 
     // Recipe grid - use event delegation for card clicks
     // Recipe grid - event delegation (backup, primary handlers are in renderRecipeGrid)

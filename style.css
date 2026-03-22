@@ -507,6 +507,74 @@ html {
     flex: 1;
 }
 
+/* Sticky recipe header (mobile only) */
+.recipe-sticky-header {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-height);
+    background: var(--sidebar-bg);
+    border-bottom: 1px solid var(--border-color);
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(-100%);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.recipe-sticky-header.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.recipe-sticky-back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: var(--hover-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.recipe-sticky-title {
+    font-size: 1rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+/* Overlay back button on image */
+.image-back-btn {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
 /* Mobile Header */
 .mobile-header {
     display: none;
@@ -1597,6 +1665,11 @@ button.recipe-card:active {
     text-align: center;
 }
 
+@keyframes recipeSlideUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .sidebar {
@@ -1640,11 +1713,16 @@ button.recipe-card:active {
     }
 
     .back-to-grid {
+        display: none;
+    }
+
+    .recipe-sticky-header {
         display: flex;
     }
 
     .recipe-detail {
         max-width: 100%;
+        animation: recipeSlideUp 0.32s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .recipe-title-row {
