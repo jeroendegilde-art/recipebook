@@ -18,6 +18,7 @@ let unsubscribeFirebase = null;
 let unsubscribeFolders = null;
 let unsubscribeUserSettings = null;
 let capturedPhotos = []; // For camera feature
+let currentMultiplier = 1;
 
 // DOM Elements
 const elements = {
@@ -46,6 +47,8 @@ const elements = {
     recipeMeta: document.getElementById('recipeMeta'),
     servingsDisplay: document.getElementById('servingsDisplay'),
     servingsText: document.getElementById('servingsText'),
+    recipeImageWrap: document.getElementById('recipeImageWrap'),
+    recipeImage: document.getElementById('recipeImage'),
     copyIngredientsBtn: document.getElementById('copyIngredientsBtn'),
     resetChecklistBtn: document.getElementById('resetChecklistBtn'),
     ingredientsList: document.getElementById('ingredientsList'),
@@ -264,6 +267,46 @@ function convertToMetric(text) {
     });
 
     return text;
+}
+
+// ============================================
+// Ingredient Scaling
+// ============================================
+
+function formatQuantity(val) {
+    if (val <= 0) return '0';
+    const whole = Math.floor(val);
+    const frac = val - whole;
+    if (frac < 0.04) return whole > 0 ? String(whole) : '0';
+    const fracs = [
+        [1/8,'⅛'],[1/4,'¼'],[1/3,'⅓'],[3/8,'⅜'],
+        [1/2,'½'],[5/8,'⅝'],[2/3,'⅔'],[3/4,'¾'],[7/8,'⅞']
+    ];
+    for (const [f, c] of fracs) {
+        if (Math.abs(frac - f) < 0.04) return whole > 0 ? `${whole}${c}` : c;
+    }
+    return String(Math.round(val * 10) / 10);
+}
+
+function scaleIngredient(text, factor) {
+    if (factor === 1) return text;
+    const unicodeFracs = {
+        '½':0.5,'⅓':1/3,'⅔':2/3,'¼':0.25,'¾':0.75,
+        '⅛':0.125,'⅜':0.375,'⅝':0.625,'⅞':0.875
+    };
+    // Order matters: mixed number first, then slash fraction, then integer, then unicode
+    return text.replace(
+        /(\d+)\s+(\d+\/\d+)|(\d+\/\d+)|(\d+(?:\.\d+)?)|([½⅓⅔¼¾⅛⅜⅝⅞])/g,
+        (match, mixW, mixF, slashF, integer, unicodeF) => {
+            let val;
+            if (mixW !== undefined)     { val = parseInt(mixW) + parseInt(mixF.split('/')[0]) / parseInt(mixF.split('/')[1]); }
+            else if (slashF !== undefined) { const [n,d] = slashF.split('/'); val = parseInt(n)/parseInt(d); }
+            else if (integer !== undefined) { val = parseFloat(integer); }
+            else if (unicodeF !== undefined) { val = unicodeFracs[unicodeF]; }
+            else return match;
+            return formatQuantity(val * factor);
+        }
+    );
 }
 
 // ============================================
@@ -751,6 +794,12 @@ async function fetchRecipeFromUrl(url) {
             recipe = parseRecipeHeuristically(doc, url);
         }
 
+        // Fallback image from og:image if not already extracted from JSON-LD
+        if (!recipe.image) {
+            const ogImg = doc.querySelector('meta[property="og:image"]');
+            if (ogImg) recipe.image = ogImg.getAttribute('content') || '';
+        }
+
         // Convert to metric
         recipe.ingredients = recipe.ingredients.map(convertToMetric);
         recipe.instructions = recipe.instructions.map(convertToMetric);
@@ -781,12 +830,19 @@ function findRecipeInJsonLd(data) {
 }
 
 function parseJsonLdRecipe(data, url) {
+    // Extract image
+    let img = data.image;
+    if (Array.isArray(img)) img = img[0];
+    if (img && typeof img === 'object') img = img.url || img['@id'] || '';
+    const image = typeof img === 'string' ? img : '';
+
     const recipe = {
         title: data.name || '',
         ingredients: [],
         instructions: [],
         source: url,
-        notes: data.description || ''
+        notes: data.description || '',
+        image
     };
 
     // Parse ingredients
@@ -2075,6 +2131,17 @@ function selectRecipe(id) {
         elements.recipeSource.style.display = 'none';
     }
 
+    // Show recipe image
+    if (elements.recipeImageWrap) {
+        if (recipe.image) {
+            elements.recipeImage.src = recipe.image;
+            elements.recipeImage.alt = recipe.title;
+            elements.recipeImageWrap.style.display = 'block';
+        } else {
+            elements.recipeImageWrap.style.display = 'none';
+        }
+    }
+
     // Show servings if available
     if (recipe.servings) {
         elements.servingsText.textContent = recipe.servings;
@@ -2083,6 +2150,18 @@ function selectRecipe(id) {
         elements.servingsDisplay.style.display = 'none';
     }
 
+    // Reset multiplier and wire buttons
+    currentMultiplier = 1;
+    document.querySelectorAll('.multiplier-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mult === '1');
+        btn.onclick = () => {
+            currentMultiplier = parseFloat(btn.dataset.mult);
+            document.querySelectorAll('.multiplier-btn').forEach(b =>
+                b.classList.toggle('active', b === btn));
+            renderIngredients();
+        };
+    });
+
     // Load checked state for this recipe
     const checkedKey = `recipeBookChecked_${id}`;
     let checkedItems = JSON.parse(localStorage.getItem(checkedKey) || '[]');
@@ -2090,8 +2169,9 @@ function selectRecipe(id) {
     const renderIngredients = () => {
         elements.ingredientsList.innerHTML = recipe.ingredients
             .map((ing, i) => {
+                const scaled = scaleIngredient(ing, currentMultiplier);
                 const isChecked = checkedItems.includes(i);
-                return `<li class="ingredient-item${isChecked ? ' checked' : ''}" data-index="${i}">${escapeHtml(ing)}</li>`;
+                return `<li class="ingredient-item${isChecked ? ' checked' : ''}" data-index="${i}">${escapeHtml(scaled)}</li>`;
             })
             .join('');
         // Show reset button only when something is checked
