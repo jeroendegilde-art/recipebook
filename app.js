@@ -2639,13 +2639,14 @@ function setupEventListeners() {
 
             const recipeData = await extractRecipeWithClaude(text, recipe.source || '');
 
-            // Preserve id, folderId, createdAt, source
+            // Preserve id, folderId, createdAt, source, and existing image if rescan didn't get one
             updateRecipe(currentRecipeId, {
                 title: recipeData.title || recipe.title,
                 ingredients: recipeData.ingredients,
                 instructions: recipeData.instructions,
-                notes: recipeData.notes,
-                servings: recipeData.servings || recipe.servings
+                notes: recipeData.notes || '',
+                servings: recipeData.servings || recipe.servings || '',
+                image: sourceRecipe?.image || recipe.image || ''
             });
 
             renderRecipeList();
