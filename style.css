@@ -684,7 +684,7 @@ button.recipe-card:active {
 
 /* Back button for recipe detail on mobile */
 .back-to-grid {
-    display: none;
+    display: flex;
     align-items: center;
     gap: 8px;
     background: none;
@@ -884,20 +884,6 @@ button.recipe-card:active {
     display: block;
 }
 
-.back-to-grid--overlay {
-    display: flex;
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    background: rgba(0, 0, 0, 0.45);
-    color: #fff;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    border-radius: 20px;
-    padding: 6px 12px 6px 8px;
-    font-size: 0.8125rem;
-    margin-bottom: 0;
-}
 
 .multiplier-row {
     display: flex;
