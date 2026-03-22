@@ -805,8 +805,13 @@ async function fetchRecipeFromUrl(url) {
                 } catch (e) {
                     recipe.image = imgSrc;
                 }
+                console.log('[Image] og:image fallback:', recipe.image?.substring(0, 100));
+            } else {
+                console.log('[Image] No og:image meta tag found');
             }
         }
+
+        console.log('[Image] Final recipe.image before return:', recipe.image?.substring(0, 100));
 
         // Convert to metric
         recipe.ingredients = recipe.ingredients.map(convertToMetric);
@@ -840,9 +845,11 @@ function findRecipeInJsonLd(data) {
 function parseJsonLdRecipe(data, url) {
     // Extract image
     let img = data.image;
+    console.log('[Image] JSON-LD raw image field:', JSON.stringify(img)?.substring(0, 200));
     if (Array.isArray(img)) img = img[0];
     if (img && typeof img === 'object') img = img.url || img['@id'] || '';
     const image = typeof img === 'string' ? img : '';
+    console.log('[Image] Extracted image URL:', image?.substring(0, 100));
 
     const recipe = {
         title: data.name || '',
@@ -2144,6 +2151,7 @@ function selectRecipe(id) {
 
     // Show recipe image
     if (elements.recipeImageWrap) {
+        console.log('[Image] selectRecipe image:', recipe.image?.substring(0, 100) || '(none)');
         if (recipe.image) {
             elements.recipeImage.src = recipe.image;
             elements.recipeImage.alt = recipe.title;

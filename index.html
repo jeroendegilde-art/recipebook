@@ -10,7 +10,7 @@
     <script>
         // Force reload when a new version is deployed, even if HTML is cached
         (function() {
-            var VERSION = '20260322c';
+            var VERSION = '20260322d';
             if (localStorage.getItem('rbVersion') !== VERSION) {
                 localStorage.setItem('rbVersion', VERSION);
                 if (!location.search.includes(VERSION)) {
@@ -19,7 +19,7 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260322c">
+    <link rel="stylesheet" href="style.css?v=20260322d">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -201,7 +201,7 @@
                     Back to Recipes
                 </button>
                 <div id="recipeImageWrap" class="recipe-image-wrap" style="display:none">
-                    <img id="recipeImage" class="recipe-image" src="" alt="" onerror="this.parentElement.style.display='none'">
+                    <img id="recipeImage" class="recipe-image" src="" alt="" onerror="console.log('[Image] Load failed (onerror) for:', this.src); this.parentElement.style.display='none'">
                 </div>
                 <div class="recipe-header">
                     <div class="recipe-title-row">
@@ -671,6 +671,6 @@
         }
     </script>
 
-    <script src="app.js?v=20260322c"></script>
+    <script src="app.js?v=20260322d"></script>
 </body>
 </html>
