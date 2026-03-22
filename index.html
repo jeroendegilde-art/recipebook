@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Recipe Book</title>
-    <link rel="stylesheet" href="style.css?v=20260322a">
+    <link rel="stylesheet" href="style.css?v=20260322b">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -189,7 +189,7 @@
                     Back to Recipes
                 </button>
                 <div id="recipeImageWrap" class="recipe-image-wrap" style="display:none">
-                    <img id="recipeImage" class="recipe-image" src="" alt="">
+                    <img id="recipeImage" class="recipe-image" src="" alt="" onerror="this.parentElement.style.display='none'">
                 </div>
                 <div class="recipe-header">
                     <div class="recipe-title-row">
@@ -659,6 +659,6 @@
         }
     </script>
 
-    <script src="app.js?v=20260322a"></script>
+    <script src="app.js?v=20260322b"></script>
 </body>
 </html>

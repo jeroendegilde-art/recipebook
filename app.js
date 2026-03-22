@@ -797,7 +797,15 @@ async function fetchRecipeFromUrl(url) {
         // Fallback image from og:image if not already extracted from JSON-LD
         if (!recipe.image) {
             const ogImg = doc.querySelector('meta[property="og:image"]');
-            if (ogImg) recipe.image = ogImg.getAttribute('content') || '';
+            if (ogImg) {
+                const imgSrc = ogImg.getAttribute('content') || '';
+                // Resolve relative URLs against the source page
+                try {
+                    recipe.image = imgSrc ? new URL(imgSrc, url).href : '';
+                } catch (e) {
+                    recipe.image = imgSrc;
+                }
+            }
         }
 
         // Convert to metric
