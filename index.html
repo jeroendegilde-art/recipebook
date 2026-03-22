@@ -7,6 +7,18 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Recipe Book</title>
+    <script>
+        // Force reload when a new version is deployed, even if HTML is cached
+        (function() {
+            var VERSION = '20260322b';
+            if (localStorage.getItem('rbVersion') !== VERSION) {
+                localStorage.setItem('rbVersion', VERSION);
+                if (!location.search.includes(VERSION)) {
+                    location.replace(location.pathname + '?bust=' + VERSION);
+                }
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="style.css?v=20260322b">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
