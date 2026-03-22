@@ -1647,6 +1647,11 @@ button.recipe-card:active {
         max-width: 100%;
     }
 
+    .recipe-title-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+
     .recipe-title-row h2 {
         font-size: 1.5rem;
     }
