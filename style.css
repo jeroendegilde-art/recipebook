@@ -515,7 +515,7 @@ html {
     left: 0;
     right: 0;
     height: var(--header-height);
-    background: var(--sidebar-bg);
+    background: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
     align-items: center;
     gap: 12px;
