@@ -1,168 +1,58 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <!-- Background shadow for depth -->
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="rgba(0,0,0,0.3)"/>
-    </filter>
-    <!-- Book page gradient for slight 3D effect -->
-    <linearGradient id="leftPage" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#f0ede6;stop-opacity:1"/>
-      <stop offset="100%" style="stop-color:#e8e4dc;stop-opacity:1"/>
-    </linearGradient>
-    <linearGradient id="rightPage" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#f5f2eb;stop-opacity:1"/>
-      <stop offset="100%" style="stop-color:#ede9e1;stop-opacity:1"/>
-    </linearGradient>
-    <!-- Whisk gradient -->
-    <linearGradient id="whiskGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#f7b731;stop-opacity:1"/>
-      <stop offset="100%" style="stop-color:#e8971a;stop-opacity:1"/>
-    </linearGradient>
-    <!-- Spine highlight -->
-    <linearGradient id="spineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#2a4a3a;stop-opacity:1"/>
-      <stop offset="100%" style="stop-color:#1a3028;stop-opacity:1"/>
-    </linearGradient>
-  </defs>
 
-  <!-- Rounded square background -->
-  <rect x="0" y="0" width="512" height="512" rx="110" ry="110" fill="#1e3a2f"/>
+  <!-- Background -->
+  <rect width="512" height="512" rx="110" fill="#1e3a2f"/>
 
-  <!-- Subtle inner glow on background -->
-  <rect x="4" y="4" width="504" height="504" rx="107" ry="107" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2"/>
+  <!-- Open book shadow -->
+  <ellipse cx="256" cy="342" rx="155" ry="12" fill="#152b22"/>
 
-  <!-- ============ OPEN BOOK ============ -->
-  <!-- Book seen from slight angle, resting open -->
-  <!-- Book base shadow -->
-  <ellipse cx="256" cy="338" rx="165" ry="18" fill="rgba(0,0,0,0.25)"/>
+  <!-- Left page -->
+  <path d="M 108 172 L 108 322 Q 108 333 120 334 L 250 334 L 250 163 Q 200 158 155 163 Q 128 167 108 172 Z" fill="#f0ede6"/>
 
-  <!-- Left page (slightly angled away) -->
-  <path d="
-    M 108 170
-    L 108 318
-    Q 108 328 118 330
-    L 248 330
-    L 248 162
-    Q 200 158 160 164
-    Q 128 168 108 170
-    Z
-  " fill="url(#leftPage)"/>
+  <!-- Right page (slightly lighter) -->
+  <path d="M 262 163 L 262 334 L 392 334 Q 404 333 404 322 L 404 172 Q 384 167 350 163 Q 310 158 262 163 Z" fill="#e8e4dc"/>
 
-  <!-- Left page lines (recipe text simulation) -->
-  <line x1="128" y1="192" x2="230" y2="192" stroke="#c8c4bc" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
-  <line x1="128" y1="208" x2="218" y2="208" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <line x1="128" y1="224" x2="226" y2="224" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <line x1="128" y1="240" x2="212" y2="240" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <!-- Section break -->
-  <line x1="128" y1="258" x2="230" y2="258" stroke="#c8c4bc" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
-  <line x1="128" y1="274" x2="220" y2="274" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <line x1="128" y1="290" x2="228" y2="290" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <line x1="128" y1="306" x2="210" y2="306" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+  <!-- Spine -->
+  <rect x="249" y="163" width="14" height="171" fill="#253c2e"/>
 
-  <!-- Left page edge highlight -->
-  <path d="M 108 170 L 108 318 Q 108 328 118 330" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+  <!-- Left page text lines -->
+  <rect x="130" y="194" width="102" height="5" rx="2.5" fill="#ccc8be"/>
+  <rect x="130" y="211" width="86"  height="4" rx="2"   fill="#d8d4ca"/>
+  <rect x="130" y="225" width="94"  height="4" rx="2"   fill="#d8d4ca"/>
+  <rect x="130" y="239" width="88"  height="4" rx="2"   fill="#d8d4ca"/>
+  <rect x="130" y="256" width="102" height="5" rx="2.5" fill="#ccc8be"/>
+  <rect x="130" y="273" width="80"  height="4" rx="2"   fill="#d8d4ca"/>
+  <rect x="130" y="287" width="90"  height="4" rx="2"   fill="#d8d4ca"/>
+  <rect x="130" y="301" width="76"  height="4" rx="2"   fill="#d8d4ca"/>
+  <rect x="130" y="315" width="68"  height="4" rx="2"   fill="#d8d4ca"/>
 
-  <!-- Right page (slightly angled toward viewer) -->
-  <path d="
-    M 264 162
-    L 264 330
-    L 394 330
-    Q 404 328 404 318
-    L 404 170
-    Q 384 168 352 164
-    Q 312 158 264 162
-    Z
-  " fill="url(#rightPage)"/>
+  <!-- Right page text lines -->
+  <rect x="280" y="194" width="106" height="5" rx="2.5" fill="#d0ccc2"/>
+  <rect x="280" y="211" width="90"  height="4" rx="2"   fill="#dedad0"/>
+  <rect x="280" y="225" width="98"  height="4" rx="2"   fill="#dedad0"/>
+  <rect x="280" y="239" width="84"  height="4" rx="2"   fill="#dedad0"/>
+  <rect x="280" y="256" width="106" height="5" rx="2.5" fill="#d0ccc2"/>
+  <rect x="280" y="273" width="86"  height="4" rx="2"   fill="#dedad0"/>
+  <rect x="280" y="287" width="96"  height="4" rx="2"   fill="#dedad0"/>
 
-  <!-- Right page lines -->
-  <line x1="282" y1="192" x2="384" y2="192" stroke="#c8c4bc" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
-  <line x1="282" y1="208" x2="372" y2="208" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <line x1="282" y1="224" x2="380" y2="224" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <line x1="282" y1="240" x2="366" y2="240" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <!-- Section break -->
-  <line x1="282" y1="258" x2="384" y2="258" stroke="#c8c4bc" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
-  <line x1="282" y1="274" x2="374" y2="274" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <line x1="282" y1="290" x2="382" y2="290" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-  <line x1="282" y1="306" x2="362" y2="306" stroke="#c8c4bc" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+  <!-- Book cover bottom thickness -->
+  <path d="M 108 322 Q 108 340 122 342 L 390 342 Q 404 340 404 322 L 404 334 Q 404 346 390 348 L 122 348 Q 108 346 108 334 Z" fill="#1a2e22"/>
 
-  <!-- Right page edge highlight -->
-  <path d="M 404 170 L 404 318 Q 404 328 394 330" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
+  <!-- Whisk handle (thick diagonal line, bottom-right toward center) -->
+  <line x1="396" y1="418" x2="248" y2="232" stroke="#f5a623" stroke-width="22" stroke-linecap="round"/>
 
-  <!-- Book spine (center binding) -->
-  <path d="
-    M 248 162
-    Q 252 246 248 330
-    L 264 330
-    Q 260 246 264 162
-    Z
-  " fill="url(#spineGrad)"/>
+  <!-- Whisk neck ring -->
+  <ellipse cx="234" cy="218" rx="18" ry="12" fill="#f5a623" transform="rotate(-42 234 218)"/>
 
-  <!-- Spine highlight line -->
-  <path d="M 256 162 Q 254 246 256 330" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+  <!-- Whisk wires fanning up-left from neck -->
+  <path d="M 216 206 Q 166 168 162 116" fill="none" stroke="#f5a623" stroke-width="11" stroke-linecap="round"/>
+  <path d="M 224 200 Q 190 155 198  98" fill="none" stroke="#f5a623" stroke-width="11" stroke-linecap="round"/>
+  <path d="M 234 196 Q 216 148 236  90" fill="none" stroke="#f5a623" stroke-width="11" stroke-linecap="round"/>
+  <path d="M 244 196 Q 240 148 268  96" fill="none" stroke="#f5a623" stroke-width="11" stroke-linecap="round"/>
+  <path d="M 252 200 Q 268 158 298 108" fill="none" stroke="#f5a623" stroke-width="11" stroke-linecap="round"/>
 
-  <!-- Book cover bottom (thickness) -->
-  <path d="
-    M 108 318 Q 108 336 128 338 L 384 338 Q 404 336 404 318
-    L 404 330 Q 404 342 394 344 L 118 344 Q 108 342 108 330 Z
-  " fill="#2a3d30"/>
+  <!-- Whisk cross-brace wires -->
+  <path d="M 168 148 Q 216 134 266 144" fill="none" stroke="#f5a623" stroke-width="9" stroke-linecap="round"/>
+  <path d="M 172 120 Q 218 104 268 116" fill="none" stroke="#f5a623" stroke-width="8" stroke-linecap="round"/>
 
-  <!-- Top page curl hints on left page -->
-  <path d="M 108 170 Q 180 155 248 162" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
-  <!-- Top page curl hints on right page -->
-  <path d="M 264 162 Q 332 155 404 170" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
-
-  <!-- ============ WHISK ============ -->
-  <!-- Whisk crossing diagonally: top-right to bottom-left -->
-  <!-- The whisk handle -->
-  <g transform="rotate(-42, 256, 256)">
-    <!-- Handle -->
-    <rect x="238" y="100" width="18" height="130" rx="9" fill="url(#whiskGrad)"/>
-    <!-- Handle grip bands -->
-    <rect x="238" y="140" width="18" height="6" rx="3" fill="rgba(0,0,0,0.2)"/>
-    <rect x="238" y="158" width="18" height="6" rx="3" fill="rgba(0,0,0,0.2)"/>
-    <rect x="238" y="176" width="18" height="6" rx="3" fill="rgba(0,0,0,0.2)"/>
-    <!-- Handle highlight -->
-    <rect x="241" y="104" width="5" height="120" rx="2.5" fill="rgba(255,255,255,0.3)"/>
-
-    <!-- Whisk head bulge (wire cage) -->
-    <!-- Outer wire loops forming the bulge -->
-    <!-- Left outer wire -->
-    <path d="M 247 230 Q 210 260 218 310 Q 226 340 247 348"
-          fill="none" stroke="url(#whiskGrad)" stroke-width="6" stroke-linecap="round"/>
-    <!-- Left inner wire -->
-    <path d="M 247 230 Q 220 258 228 308 Q 234 334 247 348"
-          fill="none" stroke="url(#whiskGrad)" stroke-width="5" stroke-linecap="round"/>
-    <!-- Center wire -->
-    <path d="M 247 230 L 247 348"
-          fill="none" stroke="url(#whiskGrad)" stroke-width="5.5" stroke-linecap="round"/>
-    <!-- Right inner wire -->
-    <path d="M 265 230 Q 274 258 268 308 Q 262 334 265 348"
-          fill="none" stroke="url(#whiskGrad)" stroke-width="5" stroke-linecap="round"/>
-    <!-- Right outer wire -->
-    <path d="M 265 230 Q 296 260 290 310 Q 280 340 265 348"
-          fill="none" stroke="url(#whiskGrad)" stroke-width="6" stroke-linecap="round"/>
-
-    <!-- Cross wire at top of head -->
-    <path d="M 222 248 Q 247 238 274 248"
-          fill="none" stroke="url(#whiskGrad)" stroke-width="5" stroke-linecap="round"/>
-    <!-- Cross wire at mid of head -->
-    <path d="M 216 278 Q 247 266 280 278"
-          fill="none" stroke="url(#whiskGrad)" stroke-width="5" stroke-linecap="round"/>
-    <!-- Cross wire at lower of head -->
-    <path d="M 220 308 Q 247 296 276 308"
-          fill="none" stroke="url(#whiskGrad)" stroke-width="5" stroke-linecap="round"/>
-
-    <!-- Bottom ring connecting all wires -->
-    <ellipse cx="256" cy="348" rx="20" ry="6" fill="none" stroke="url(#whiskGrad)" stroke-width="6"/>
-
-    <!-- Neck connector -->
-    <rect x="243" y="220" width="26" height="16" rx="8" fill="url(#whiskGrad)"/>
-  </g>
-
-  <!-- Subtle shine on overall icon -->
-  <radialGradient id="shine" cx="35%" cy="25%" r="55%">
-    <stop offset="0%" style="stop-color:rgba(255,255,255,0.08);stop-opacity:1"/>
-    <stop offset="100%" style="stop-color:rgba(255,255,255,0);stop-opacity:1"/>
-  </radialGradient>
-  <rect x="0" y="0" width="512" height="512" rx="110" ry="110" fill="url(#shine)"/>
 </svg>
