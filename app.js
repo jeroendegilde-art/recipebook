@@ -1751,52 +1751,75 @@ function deleteFolder(id) {
     return false;
 }
 
+let folderReorderMode = false;
+
 function renderFoldersList() {
     const allRecipesCount = recipes.length;
     const favCount = recipes.filter(r => r.favorite).length;
-    const dragHandleSvg = `<span class="drag-handle" title="Drag to reorder"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></span>`;
+    const dragHandleSvg = `<span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></span>`;
 
-    let html = `
-        <button class="folder-item ${currentFolderId === 'all' ? 'active' : ''}" data-folder="all">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-            All Recipes
-            <span class="folder-count">${allRecipesCount}</span>
-        </button>
-        <button class="folder-item ${currentFolderId === 'favorites' ? 'active' : ''}" data-folder="favorites">
-            <svg viewBox="0 0 24 24" fill="${currentFolderId === 'favorites' ? '#f5a623' : 'none'}" stroke="${currentFolderId === 'favorites' ? '#f5a623' : 'currentColor'}" stroke-width="2">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-            </svg>
-            Favorites
-            <span class="folder-count">${favCount}</span>
-        </button>
-    `;
+    let html = '';
+
+    if (!folderReorderMode) {
+        html += `
+            <button class="folder-item ${currentFolderId === 'all' ? 'active' : ''}" data-folder="all">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                All Recipes
+                <span class="folder-count">${allRecipesCount}</span>
+            </button>
+            <button class="folder-item ${currentFolderId === 'favorites' ? 'active' : ''}" data-folder="favorites">
+                <svg viewBox="0 0 24 24" fill="${currentFolderId === 'favorites' ? '#f5a623' : 'none'}" stroke="${currentFolderId === 'favorites' ? '#f5a623' : 'currentColor'}" stroke-width="2">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                </svg>
+                Favorites
+                <span class="folder-count">${favCount}</span>
+            </button>
+        `;
+    }
 
     folders.forEach((folder, idx) => {
         const count = recipes.filter(r => r.folderId === folder.id).length;
         html += `
-            <button class="folder-item ${currentFolderId === folder.id ? 'active' : ''}" data-folder="${folder.id}" data-sort-idx="${idx}">
-                ${dragHandleSvg}
+            <button class="folder-item ${!folderReorderMode && currentFolderId === folder.id ? 'active' : ''} ${folderReorderMode ? 'reorder-mode' : ''}" data-folder="${folder.id}" data-sort-idx="${idx}">
+                ${folderReorderMode ? dragHandleSvg : ''}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                 </svg>
                 ${escapeHtml(folder.name)}
-                <span class="folder-count">${count}</span>
+                ${!folderReorderMode ? `<span class="folder-count">${count}</span>` : ''}
             </button>
         `;
     });
 
+    // Reorganise / Done button at bottom
+    if (folders.length > 1) {
+        html += `<button class="folder-reorder-toggle" id="folderReorderToggle">
+            ${folderReorderMode
+                ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Done`
+                : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Reorganise`}
+        </button>`;
+    }
+
     elements.foldersList.innerHTML = html;
 
-    // Drag-to-reorder folders
-    makeSortable(
-        elements.foldersList,
-        () => folders,
-        arr => { folders.splice(0, folders.length, ...arr); saveFolders(); },
-        () => renderFoldersList()
-    );
+    // Toggle button
+    document.getElementById('folderReorderToggle')?.addEventListener('click', () => {
+        folderReorderMode = !folderReorderMode;
+        renderFoldersList();
+    });
+
+    // Drag-to-reorder (only in reorder mode)
+    if (folderReorderMode) {
+        makeSortable(
+            elements.foldersList,
+            () => folders,
+            arr => { folders.splice(0, folders.length, ...arr); saveFolders(); },
+            () => renderFoldersList()
+        );
+    }
 
     // Add click handlers
     elements.foldersList.querySelectorAll('.folder-item').forEach(btn => {
@@ -2234,11 +2257,8 @@ function renderRecipeList(filter = '') {
 
     elements.emptyState.style.display = 'none';
 
-    const dragHandleSvg = `<span class="drag-handle" title="Drag to reorder"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></span>`;
-
-    elements.recipeList.innerHTML = filteredRecipes.map((recipe, idx) => `
-        <button class="recipe-item ${recipe.id === currentRecipeId ? 'active' : ''}" data-id="${recipe.id}" data-sort-idx="${idx}">
-            ${currentFolderId === 'all' ? dragHandleSvg : ''}
+    elements.recipeList.innerHTML = filteredRecipes.map(recipe => `
+        <button class="recipe-item ${recipe.id === currentRecipeId ? 'active' : ''}" data-id="${recipe.id}">
             <span class="recipe-item-title">${escapeHtml(recipe.title)}</span>
             <span class="recipe-item-meta">${recipe.ingredients.length} ingredients</span>
         </button>
@@ -2247,7 +2267,6 @@ function renderRecipeList(filter = '') {
     // Add click handlers directly to each item
     elements.recipeList.querySelectorAll('.recipe-item').forEach(item => {
         item.onclick = function(e) {
-            if (e.target.closest('.drag-handle')) return;
             e.preventDefault();
             const recipeId = this.dataset.id;
             if (recipeId) {
@@ -2258,16 +2277,6 @@ function renderRecipeList(filter = '') {
             }
         };
     });
-
-    // Drag-to-reorder recipes (only in "all" view to avoid confusion)
-    if (currentFolderId === 'all') {
-        makeSortable(
-            elements.recipeList,
-            () => recipes,
-            arr => { recipes.splice(0, recipes.length, ...arr); saveRecipes(); },
-            () => renderRecipeList(filter)
-        );
-    }
 
     // Also update the grid view
     renderRecipeGrid(filter);

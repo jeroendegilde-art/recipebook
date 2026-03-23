@@ -859,13 +859,36 @@ button.recipe-card:active {
     stroke: #f5a623;
 }
 
+/* Reorganise toggle button */
+.folder-reorder-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: 8px;
+    padding: 7px 12px;
+    background: none;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+.folder-reorder-toggle:hover { opacity: 1; }
+.folder-reorder-toggle svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+/* Folder in reorder mode */
+.folder-item.reorder-mode { cursor: default; }
+
 /* Drag handle */
 .drag-handle {
     display: flex;
     align-items: center;
-    padding: 0 4px 0 0;
+    padding: 0 6px 0 0;
     color: var(--text-secondary);
-    opacity: 0.35;
+    opacity: 0.5;
     cursor: grab;
     flex-shrink: 0;
     touch-action: none;
@@ -874,9 +897,7 @@ button.recipe-card:active {
 .drag-handle svg { width: 14px; height: 14px; pointer-events: none; }
 
 /* Dragging state */
-.sidebar-item-dragging {
-    opacity: 0.4;
-}
+.sidebar-item-dragging { opacity: 0.4; }
 .sidebar-item-drag-above { box-shadow: 0 -2px 0 var(--accent); }
 .sidebar-item-drag-below { box-shadow: 0 2px 0 var(--accent); }
 
