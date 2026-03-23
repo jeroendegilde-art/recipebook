@@ -1,58 +1,71 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
 
   <!-- Background -->
-  <rect width="512" height="512" rx="110" fill="#1e3a2f"/>
+  <rect width="512" height="512" rx="90" fill="#111111"/>
 
-  <!-- Open book shadow -->
-  <ellipse cx="256" cy="342" rx="155" ry="12" fill="#152b22"/>
+  <!-- ===== BOOK (closed, slight 3/4 view) ===== -->
 
-  <!-- Left page -->
-  <path d="M 108 172 L 108 322 Q 108 333 120 334 L 250 334 L 250 163 Q 200 158 155 163 Q 128 167 108 172 Z" fill="#f0ede6"/>
+  <!-- Book shadow -->
+  <ellipse cx="268" cy="415" rx="140" ry="12" fill="#000000" opacity="0.5"/>
 
-  <!-- Right page (slightly lighter) -->
-  <path d="M 262 163 L 262 334 L 392 334 Q 404 333 404 322 L 404 172 Q 384 167 350 163 Q 310 158 262 163 Z" fill="#e8e4dc"/>
+  <!-- Book spine (right 3D face) -->
+  <path d="M 358 104 L 392 118 L 392 408 L 358 394 Z" fill="#222222"/>
 
-  <!-- Spine -->
-  <rect x="249" y="163" width="14" height="171" fill="#253c2e"/>
+  <!-- Book top face (3D top edge) -->
+  <path d="M 148 104 L 358 104 L 392 118 L 182 118 Z" fill="#3a3a3a"/>
 
-  <!-- Left page text lines -->
-  <rect x="130" y="194" width="102" height="5" rx="2.5" fill="#ccc8be"/>
-  <rect x="130" y="211" width="86"  height="4" rx="2"   fill="#d8d4ca"/>
-  <rect x="130" y="225" width="94"  height="4" rx="2"   fill="#d8d4ca"/>
-  <rect x="130" y="239" width="88"  height="4" rx="2"   fill="#d8d4ca"/>
-  <rect x="130" y="256" width="102" height="5" rx="2.5" fill="#ccc8be"/>
-  <rect x="130" y="273" width="80"  height="4" rx="2"   fill="#d8d4ca"/>
-  <rect x="130" y="287" width="90"  height="4" rx="2"   fill="#d8d4ca"/>
-  <rect x="130" y="301" width="76"  height="4" rx="2"   fill="#d8d4ca"/>
-  <rect x="130" y="315" width="68"  height="4" rx="2"   fill="#d8d4ca"/>
+  <!-- Book front cover (main face) -->
+  <rect x="148" y="104" width="210" height="290" rx="4" fill="#2e2e2e"/>
 
-  <!-- Right page text lines -->
-  <rect x="280" y="194" width="106" height="5" rx="2.5" fill="#d0ccc2"/>
-  <rect x="280" y="211" width="90"  height="4" rx="2"   fill="#dedad0"/>
-  <rect x="280" y="225" width="98"  height="4" rx="2"   fill="#dedad0"/>
-  <rect x="280" y="239" width="84"  height="4" rx="2"   fill="#dedad0"/>
-  <rect x="280" y="256" width="106" height="5" rx="2.5" fill="#d0ccc2"/>
-  <rect x="280" y="273" width="86"  height="4" rx="2"   fill="#dedad0"/>
-  <rect x="280" y="287" width="96"  height="4" rx="2"   fill="#dedad0"/>
+  <!-- Spine dividing line -->
+  <line x1="358" y1="104" x2="358" y2="394" stroke="#1a1a1a" stroke-width="3"/>
 
-  <!-- Book cover bottom thickness -->
-  <path d="M 108 322 Q 108 340 122 342 L 390 342 Q 404 340 404 322 L 404 334 Q 404 346 390 348 L 122 348 Q 108 346 108 334 Z" fill="#1a2e22"/>
+  <!-- Page edges at bottom (horizontal lines suggesting pages) -->
+  <line x1="155" y1="372" x2="352" y2="372" stroke="#444444" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="155" y1="382" x2="352" y2="382" stroke="#3e3e3e" stroke-width="2" stroke-linecap="round"/>
+  <line x1="155" y1="390" x2="352" y2="390" stroke="#383838" stroke-width="1.5" stroke-linecap="round"/>
 
-  <!-- Whisk handle (thick diagonal line, bottom-right toward center) -->
-  <line x1="396" y1="418" x2="248" y2="232" stroke="#f5a623" stroke-width="22" stroke-linecap="round"/>
+  <!-- Subtle border outline on front cover -->
+  <rect x="148" y="104" width="210" height="290" rx="4"
+        fill="none" stroke="#3d3d3d" stroke-width="2"/>
 
-  <!-- Whisk neck ring -->
-  <ellipse cx="234" cy="218" rx="18" ry="12" fill="#f5a623" transform="rotate(-42 234 218)"/>
+  <!-- ===== WHISK (rotated 42°, cage upper-right, handle lower-left) ===== -->
+  <g transform="rotate(42, 256, 256)">
 
-  <!-- Whisk wires fanning up-left from neck -->
-  <path d="M 216 206 Q 166 168 162 116" fill="none" stroke="#f5a623" stroke-width="11" stroke-linecap="round"/>
-  <path d="M 224 200 Q 190 155 198  98" fill="none" stroke="#f5a623" stroke-width="11" stroke-linecap="round"/>
-  <path d="M 234 196 Q 216 148 236  90" fill="none" stroke="#f5a623" stroke-width="11" stroke-linecap="round"/>
-  <path d="M 244 196 Q 240 148 268  96" fill="none" stroke="#f5a623" stroke-width="11" stroke-linecap="round"/>
-  <path d="M 252 200 Q 268 158 298 108" fill="none" stroke="#f5a623" stroke-width="11" stroke-linecap="round"/>
+    <!-- Handle (tapered toward bottom) -->
+    <path d="M 247 262 L 247 415 Q 253 422 256 422 Q 259 422 265 415 L 265 262 Z"
+          rx="9" fill="#c9a84c"/>
 
-  <!-- Whisk cross-brace wires -->
-  <path d="M 168 148 Q 216 134 266 144" fill="none" stroke="#f5a623" stroke-width="9" stroke-linecap="round"/>
-  <path d="M 172 120 Q 218 104 268 116" fill="none" stroke="#f5a623" stroke-width="8" stroke-linecap="round"/>
+    <!-- Handle taper at bottom -->
+    <path d="M 248 390 Q 256 425 264 390 Z" fill="#b8962e"/>
+
+    <!-- Grip rings on handle -->
+    <rect x="247" y="310" width="18" height="5" rx="2.5" fill="#b8962e"/>
+    <rect x="247" y="328" width="18" height="5" rx="2.5" fill="#b8962e"/>
+    <rect x="247" y="346" width="18" height="5" rx="2.5" fill="#b8962e"/>
+
+    <!-- Collar / neck -->
+    <rect x="242" y="252" width="28" height="16" rx="8" fill="#c9a84c"/>
+
+    <!-- Wire cage — near side (bowing left, 4 wires, most prominent) -->
+    <path d="M 256 260 C 148 228 130 136 256 88"
+          fill="none" stroke="#c9a84c" stroke-width="9" stroke-linecap="round"/>
+    <path d="M 256 260 C 185 235 172 146 256 88"
+          fill="none" stroke="#c9a84c" stroke-width="8" stroke-linecap="round"/>
+    <path d="M 256 260 C 216 246 210 162 256 88"
+          fill="none" stroke="#c9a84c" stroke-width="7" stroke-linecap="round"/>
+    <path d="M 256 260 C 238 254 234 172 256 88"
+          fill="none" stroke="#c9a84c" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- Far side (bowing right, 2 wires, less prominent — shows depth) -->
+    <path d="M 256 260 C 280 252 286 170 256 88"
+          fill="none" stroke="#c9a84c" stroke-width="6" stroke-linecap="round"/>
+    <path d="M 256 260 C 318 238 332 148 256 88"
+          fill="none" stroke="#c9a84c" stroke-width="7" stroke-linecap="round"/>
+
+    <!-- Tip cap -->
+    <circle cx="256" cy="88" r="8" fill="#c9a84c"/>
+
+  </g>
 
 </svg>
