@@ -3090,6 +3090,44 @@ function setupEventListeners() {
         if (currentRecipeId) toggleFavorite(currentRecipeId);
     });
 
+    // Cooking mode — Wake Lock API keeps screen on
+    let wakeLock = null;
+    const cookingModeBtn = document.getElementById('cookingModeBtn');
+
+    async function setCookingMode(on) {
+        if (on) {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                cookingModeBtn.classList.add('active');
+                cookingModeBtn.querySelector('svg').innerHTML = '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>';
+                cookingModeBtn.childNodes[2].textContent = ' Screen stays on';
+                wakeLock.addEventListener('release', () => {
+                    wakeLock = null;
+                    cookingModeBtn.classList.remove('active');
+                    cookingModeBtn.querySelector('svg').innerHTML = '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"></path><path d="M12 6v6l4 2"></path>';
+                    cookingModeBtn.childNodes[2].textContent = ' Cooking Mode';
+                });
+            } catch (e) {
+                console.warn('Wake lock not available:', e.message);
+                cookingModeBtn.textContent = 'Screen lock not supported';
+            }
+        } else {
+            await wakeLock?.release();
+        }
+    }
+
+    cookingModeBtn?.addEventListener('click', () => {
+        if (wakeLock) setCookingMode(false);
+        else setCookingMode(true);
+    });
+
+    // Re-acquire wake lock when tab becomes visible again
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible' && cookingModeBtn?.classList.contains('active') && !wakeLock) {
+            await setCookingMode(true);
+        }
+    });
+
     elements.backToGridBtn?.addEventListener('click', () => {
         showHomeView();
     });
