@@ -1343,15 +1343,19 @@ button.recipe-card:active {
     padding: 4px;
     border-radius: var(--radius);
     margin-bottom: 24px;
+    overflow-x: auto;
+    scrollbar-width: none;
 }
+.input-tabs::-webkit-scrollbar { display: none; }
 
 .tab {
     flex: 1;
-    padding: 8px 12px;
+    padding: 8px 10px;
     background: none;
     border: none;
     border-radius: 6px;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
+    white-space: nowrap;
     font-weight: 500;
     color: var(--text-secondary);
     cursor: pointer;
@@ -1853,6 +1857,121 @@ button.recipe-card:active {
         padding: 12px 24px;
         font-size: 0.9375rem;
     }
+}
+
+/* PDF Import Tab */
+.pdf-drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius);
+    padding: 32px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    text-align: center;
+    color: var(--text-muted);
+}
+.pdf-drop-zone:hover,
+.pdf-drop-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+}
+.pdf-drop-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+.pdf-drop-label span {
+    color: var(--accent);
+    text-decoration: underline;
+}
+.pdf-file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-hover);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    color: var(--accent);
+}
+.pdf-file-name {
+    flex: 1;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pdf-progress {
+    margin-top: 16px;
+}
+.pdf-progress-bar {
+    height: 6px;
+    background: var(--bg-hover);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+}
+.pdf-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+    width: 0%;
+}
+.pdf-progress-text {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    text-align: center;
+    margin: 0;
+}
+.pdf-results {
+    margin-top: 16px;
+}
+.pdf-results-summary {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0 0 10px;
+}
+.pdf-recipe-preview {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--bg-tertiary);
+}
+.pdf-recipe-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.875rem;
+}
+.pdf-recipe-item:last-child { border-bottom: none; }
+.pdf-recipe-num {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    min-width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+}
+.pdf-recipe-title {
+    flex: 1;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pdf-recipe-meta {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    flex-shrink: 0;
 }
 
 /* Print styles */

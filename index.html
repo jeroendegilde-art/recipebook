@@ -354,6 +354,7 @@
                     <button class="tab active" data-tab="url">From URL</button>
                     <button class="tab" data-tab="paste">Paste</button>
                     <button class="tab" data-tab="text">Manual</button>
+                    <button class="tab" data-tab="pdf">PDF Import</button>
                 </div>
 
                 <!-- Camera Input -->
@@ -468,6 +469,53 @@
                         </select>
                     </div>
                     <button class="btn btn-primary btn-full" id="saveManualBtn">Save Recipe</button>
+                </div>
+
+                <!-- PDF Bulk Import -->
+                <div class="tab-content" id="pdfTab">
+                    <div class="pdf-drop-zone" id="pdfDropZone">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+                            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/>
+                        </svg>
+                        <p class="pdf-drop-label">Drop PDF here or <span>click to browse</span></p>
+                        <input type="file" id="pdfFileInput" accept=".pdf" style="display:none">
+                    </div>
+
+                    <div class="pdf-file-info" id="pdfFileInfo" style="display:none">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/>
+                        </svg>
+                        <span class="pdf-file-name" id="pdfFileName"></span>
+                        <button class="btn-icon btn-small" id="pdfClearBtn" title="Remove file">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <path d="M18 6L6 18M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="form-group" id="pdfFolderGroup" style="display:none; margin-top:12px">
+                        <label for="pdfFolder">Add to folder (optional)</label>
+                        <select id="pdfFolder">
+                            <option value="">No folder</option>
+                        </select>
+                    </div>
+
+                    <div class="pdf-progress" id="pdfProgress" style="display:none">
+                        <div class="pdf-progress-bar">
+                            <div class="pdf-progress-fill" id="pdfProgressFill"></div>
+                        </div>
+                        <p class="pdf-progress-text" id="pdfProgressText">Processing...</p>
+                    </div>
+
+                    <div class="pdf-results" id="pdfResults" style="display:none">
+                        <p class="pdf-results-summary" id="pdfResultsSummary"></p>
+                        <div class="pdf-recipe-preview" id="pdfRecipePreview"></div>
+                    </div>
+
+                    <p class="help-text" style="margin-top:12px">Upload a recipe book PDF — each recipe will be extracted individually. Works best with text-based PDFs. Requires a Claude API key.</p>
+
+                    <button class="btn btn-primary btn-full" id="extractPdfBtn" style="display:none; margin-top:8px">Extract Recipes</button>
+                    <button class="btn btn-secondary btn-full" id="importPdfBtn" style="display:none; margin-top:8px">Import All Recipes</button>
                 </div>
             </div>
         </div>
@@ -713,6 +761,8 @@
         }
     </script>
 
+    <!-- PDF.js for PDF text extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="app.js?v=20260322s"></script>
     <script>
         if ('serviceWorker' in navigator) {

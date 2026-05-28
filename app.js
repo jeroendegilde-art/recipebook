@@ -443,6 +443,7 @@ ${text.substring(0, 15000)}`;
 
         return {
             title: recipe.title || 'Untitled Recipe',
+            servings: recipe.servings || '',
             ingredients,
             instructions,
             source: sourceUrl,
@@ -571,6 +572,172 @@ IMPORTANT RULES:
         console.error('Photo extraction error:', error);
         throw error;
     }
+}
+
+// ============================================
+// PDF Bulk Import
+// ============================================
+
+let pdfExtractedRecipes = [];
+
+async function extractTextFromPDF(file, onPageProgress) {
+    const pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib) throw new Error('PDF library not loaded. Please refresh and try again.');
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let arrayBuffer;
+    try { arrayBuffer = await file.arrayBuffer(); }
+    catch (e) { throw new Error('Could not read the PDF file.'); }
+
+    let pdf;
+    try { pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise; }
+    catch (e) { throw new Error('Could not open PDF. It may be corrupted or password-protected.'); }
+
+    const numPages = pdf.numPages;
+    let fullText = '';
+
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        if (onPageProgress) onPageProgress(pageNum, numPages);
+
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+
+        let pageText = '';
+        let lastY = null;
+
+        for (const item of textContent.items) {
+            if (!item.str) continue;
+            const y = item.transform[5];
+            if (lastY !== null) {
+                const dy = Math.abs(y - lastY);
+                if (dy > 10) pageText += '\n\n';
+                else if (dy > 4) pageText += '\n';
+                else pageText += ' ';
+            }
+            pageText += item.str.trim();
+            lastY = y;
+        }
+
+        fullText += pageText + '\n\n';
+    }
+
+    return fullText.trim();
+}
+
+async function extractRecipesFromChunk(text, chunkIndex, totalChunks) {
+    const prompt = `Extract ALL recipes from this cookbook text (section ${chunkIndex + 1} of ${totalChunks}).
+
+Return a JSON array where each recipe is:
+{
+  "title": "Recipe Name",
+  "servings": "4 servings",
+  "ingredients": ["ingredient 1", "ingredient 2"],
+  "instructions": ["step 1", "step 2"],
+  "notes": ""
+}
+
+RULES:
+1. Extract EVERY distinct recipe you find, even if incomplete at the edges
+2. Copy measurements EXACTLY as written — do NOT convert any units
+3. Each instruction = one cooking action (never merge two steps)
+4. Return [] if no recipes are found in this text
+5. Return ONLY the JSON array, no other text
+
+COOKBOOK TEXT:
+${text}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': claudeApiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 8192,
+            messages: [{ role: 'user', content: prompt }]
+        })
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        if (response.status === 429) throw new Error('Rate limit reached. Please wait a moment and try again.');
+        throw new Error(err.error?.message || `API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.content[0].text;
+
+    const start = content.indexOf('[');
+    const end = content.lastIndexOf(']');
+    if (start === -1 || end === -1 || end <= start) return [];
+
+    try {
+        const recipes = JSON.parse(content.slice(start, end + 1));
+        return recipes.filter(r => r.title && (r.ingredients?.length > 0 || r.instructions?.length > 0));
+    } catch (e) {
+        console.error(`Chunk ${chunkIndex}: JSON parse failed`, e);
+        return [];
+    }
+}
+
+async function processPDFBulkImport(file, onProgress) {
+    if (!claudeApiKey) throw new Error('Please add your Claude API key in Settings first.');
+
+    onProgress('reading', 0, 1, 'Reading PDF...');
+    const fullText = await extractTextFromPDF(file, (page, total) => {
+        onProgress('reading', page, total, `Reading page ${page} of ${total}...`);
+    });
+
+    if (!fullText || fullText.length < 50) {
+        throw new Error('No readable text found. The PDF may be image-based — try the Camera tab to photograph pages instead.');
+    }
+
+    const CHUNK_SIZE = 20000;
+    const OVERLAP = 1000;
+    const chunks = [];
+    let i = 0;
+    while (i < fullText.length) {
+        chunks.push(fullText.slice(i, i + CHUNK_SIZE));
+        if (i + CHUNK_SIZE >= fullText.length) break;
+        i += CHUNK_SIZE - OVERLAP;
+    }
+
+    onProgress('extracting', 0, chunks.length,
+        `${Math.round(fullText.length / 1000)}K chars found. Extracting recipes (0/${chunks.length})...`);
+
+    const allRecipes = [];
+    const seenTitles = new Set();
+
+    for (let ci = 0; ci < chunks.length; ci++) {
+        onProgress('extracting', ci + 1, chunks.length,
+            `Extracting recipes... (${ci + 1} of ${chunks.length} sections)`);
+
+        try {
+            const found = await extractRecipesFromChunk(chunks[ci], ci, chunks.length);
+            for (const r of found) {
+                const key = r.title.toLowerCase().trim().replace(/\s+/g, ' ');
+                if (!seenTitles.has(key)) {
+                    seenTitles.add(key);
+                    allRecipes.push({
+                        title: r.title,
+                        servings: r.servings || '',
+                        ingredients: (r.ingredients || []).map(convertToMetric),
+                        instructions: (r.instructions || []).map(convertToMetric),
+                        notes: r.notes || ''
+                    });
+                }
+            }
+        } catch (e) {
+            console.error(`Chunk ${ci} failed:`, e.message);
+        }
+    }
+
+    return allRecipes;
 }
 
 // ============================================
@@ -802,6 +969,21 @@ async function fetchRecipeFromUrl(url) {
         // If JSON-LD didn't work, try heuristic parsing
         if (!recipe.title || recipe.ingredients.length === 0) {
             recipe = parseRecipeHeuristically(doc, url);
+        }
+
+        // If both structured methods failed, fall back to Claude (handles Substack, JS-heavy sites, prose recipes)
+        if (hasApiKey() && (!recipe.title || recipe.ingredients.length === 0)) {
+            const textContent = extractCleanText(doc);
+            if (textContent.length > 100) {
+                const claudeRecipe = await extractRecipeWithClaude(textContent, url);
+                const ogImg = doc.querySelector('meta[property="og:image"]');
+                if (ogImg) {
+                    const imgSrc = ogImg.getAttribute('content') || '';
+                    try { claudeRecipe.image = imgSrc ? new URL(imgSrc, url).href : ''; }
+                    catch (e) { claudeRecipe.image = imgSrc; }
+                }
+                return claudeRecipe;
+            }
         }
 
         // Fallback image from og:image if not already extracted from JSON-LD
@@ -1857,6 +2039,8 @@ function updateFolderSelects() {
 
     if (elements.manualFolder) elements.manualFolder.innerHTML = options;
     if (elements.editFolder) elements.editFolder.innerHTML = options;
+    const pdfFolderEl = document.getElementById('pdfFolder');
+    if (pdfFolderEl) pdfFolderEl.innerHTML = options;
 }
 
 function openEditFolderModal(folderId) {
@@ -2455,6 +2639,179 @@ function switchTab(tabName) {
 function setButtonLoading(button, loading) {
     button.classList.toggle('loading', loading);
     button.disabled = loading;
+}
+
+// ============================================
+// PDF Tab UI
+// ============================================
+
+function resetPdfTab() {
+    pdfExtractedRecipes = [];
+    const dropZone = document.getElementById('pdfDropZone');
+    const fileInfo = document.getElementById('pdfFileInfo');
+    const folderGroup = document.getElementById('pdfFolderGroup');
+    const extractBtn = document.getElementById('extractPdfBtn');
+    const importBtn = document.getElementById('importPdfBtn');
+    const progress = document.getElementById('pdfProgress');
+    const results = document.getElementById('pdfResults');
+    const fileInput = document.getElementById('pdfFileInput');
+
+    if (dropZone) dropZone.style.display = '';
+    if (fileInfo) fileInfo.style.display = 'none';
+    if (folderGroup) folderGroup.style.display = 'none';
+    if (extractBtn) { extractBtn.style.display = 'none'; extractBtn.textContent = 'Extract Recipes'; extractBtn.disabled = false; }
+    if (importBtn) { importBtn.style.display = 'none'; importBtn.disabled = false; }
+    if (progress) progress.style.display = 'none';
+    if (results) results.style.display = 'none';
+    if (fileInput) fileInput.value = '';
+}
+
+function setupPdfTabHandlers() {
+    const pdfDropZone = document.getElementById('pdfDropZone');
+    const pdfFileInput = document.getElementById('pdfFileInput');
+    const pdfFileInfo = document.getElementById('pdfFileInfo');
+    const pdfFileNameEl = document.getElementById('pdfFileName');
+    const pdfClearBtn = document.getElementById('pdfClearBtn');
+    const pdfFolderGroup = document.getElementById('pdfFolderGroup');
+    const extractPdfBtn = document.getElementById('extractPdfBtn');
+    const importPdfBtn = document.getElementById('importPdfBtn');
+    const pdfProgress = document.getElementById('pdfProgress');
+    const pdfProgressFill = document.getElementById('pdfProgressFill');
+    const pdfProgressText = document.getElementById('pdfProgressText');
+    const pdfResults = document.getElementById('pdfResults');
+    const pdfResultsSummary = document.getElementById('pdfResultsSummary');
+    const pdfRecipePreview = document.getElementById('pdfRecipePreview');
+
+    if (!pdfDropZone) return;
+
+    let selectedFile = null;
+
+    function selectFile(file) {
+        if (!file || file.type !== 'application/pdf') {
+            showToast('Please select a PDF file', 'error');
+            return;
+        }
+        selectedFile = file;
+        pdfFileNameEl.textContent = file.name;
+        pdfDropZone.style.display = 'none';
+        pdfFileInfo.style.display = 'flex';
+        pdfFolderGroup.style.display = 'block';
+        extractPdfBtn.style.display = 'block';
+        extractPdfBtn.textContent = 'Extract Recipes';
+        pdfResults.style.display = 'none';
+        importPdfBtn.style.display = 'none';
+        pdfExtractedRecipes = [];
+    }
+
+    pdfDropZone.addEventListener('click', () => pdfFileInput.click());
+
+    pdfFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) selectFile(file);
+    });
+
+    pdfDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        pdfDropZone.classList.add('drag-over');
+    });
+    pdfDropZone.addEventListener('dragleave', () => pdfDropZone.classList.remove('drag-over'));
+    pdfDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        pdfDropZone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) selectFile(file);
+    });
+
+    pdfClearBtn.addEventListener('click', () => {
+        selectedFile = null;
+        resetPdfTab();
+    });
+
+    extractPdfBtn.addEventListener('click', async () => {
+        if (!selectedFile) return;
+        if (!claudeApiKey) {
+            showToast('Add your Claude API key in Settings first', 'error');
+            openModal(elements.settingsModal);
+            return;
+        }
+
+        extractPdfBtn.disabled = true;
+        extractPdfBtn.textContent = 'Extracting...';
+        pdfProgress.style.display = 'block';
+        pdfProgressFill.style.width = '0%';
+        pdfResults.style.display = 'none';
+        importPdfBtn.style.display = 'none';
+
+        try {
+            const found = await processPDFBulkImport(selectedFile, (phase, current, total, message) => {
+                pdfProgressText.textContent = message;
+                const pct = phase === 'reading'
+                    ? (current / total) * 25
+                    : 25 + (current / total) * 75;
+                pdfProgressFill.style.width = pct + '%';
+            });
+
+            pdfExtractedRecipes = found;
+            pdfProgress.style.display = 'none';
+            pdfResults.style.display = 'block';
+
+            if (found.length === 0) {
+                pdfResultsSummary.textContent = 'No recipes found. The PDF may not contain recognisable recipe content.';
+                pdfResultsSummary.style.color = 'var(--danger)';
+                pdfRecipePreview.innerHTML = '';
+            } else {
+                pdfResultsSummary.textContent = `Found ${found.length} recipe${found.length !== 1 ? 's' : ''}`;
+                pdfResultsSummary.style.color = '';
+                pdfRecipePreview.innerHTML = found.map((r, i) => `
+                    <div class="pdf-recipe-item">
+                        <span class="pdf-recipe-num">${i + 1}</span>
+                        <span class="pdf-recipe-title">${escapeHtml(r.title)}</span>
+                        <span class="pdf-recipe-meta">${r.ingredients.length} ingr.</span>
+                    </div>
+                `).join('');
+                importPdfBtn.textContent = `Import ${found.length} Recipe${found.length !== 1 ? 's' : ''}`;
+                importPdfBtn.style.display = 'block';
+            }
+
+            extractPdfBtn.textContent = 'Re-extract';
+            extractPdfBtn.disabled = false;
+
+        } catch (error) {
+            pdfProgress.style.display = 'none';
+            extractPdfBtn.disabled = false;
+            extractPdfBtn.textContent = 'Extract Recipes';
+            showToast(error.message, 'error');
+        }
+    });
+
+    importPdfBtn.addEventListener('click', async () => {
+        if (!pdfExtractedRecipes.length) return;
+
+        const folderId = document.getElementById('pdfFolder')?.value || '';
+        const toImport = [...pdfExtractedRecipes];
+
+        importPdfBtn.disabled = true;
+        extractPdfBtn.disabled = true;
+
+        let firstAdded = null;
+        for (let idx = 0; idx < toImport.length; idx++) {
+            const added = addRecipe({ ...toImport[idx], folderId });
+            if (!firstAdded) firstAdded = added;
+            importPdfBtn.textContent = `Importing... (${idx + 1}/${toImport.length})`;
+            if ((idx + 1) % 10 === 0) await new Promise(r => setTimeout(r, 80));
+        }
+
+        closeModal(elements.addModal);
+        resetPdfTab();
+        renderFoldersList();
+        renderRecipeList();
+        if (firstAdded) selectRecipe(firstAdded.id);
+        showToast(`Imported ${toImport.length} recipes!`);
+    });
+
+    // Reset when modal closes
+    elements.closeModalBtn?.addEventListener('click', resetPdfTab);
+    elements.modalBackdrop?.addEventListener('click', resetPdfTab);
 }
 
 // ============================================
@@ -3292,6 +3649,9 @@ function setupEventListeners() {
             elements.sidebar.classList.remove('open');
         }
     });
+
+    // PDF bulk import
+    setupPdfTabHandlers();
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
