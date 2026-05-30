@@ -2368,9 +2368,13 @@ function showHomeView() {
     hideRecipeStickyHeader();
     elements.recipeHome.style.display = 'block';
     elements.recipeDetail.style.display = 'none';
+    // Clear any swipe transform left over
+    elements.recipeDetail.style.transition = 'none';
+    elements.recipeDetail.style.transform = '';
     elements.emptyState.style.display = 'none';
     currentRecipeId = null;
     renderRecipeGrid();
+    rbRestoreHomeScroll();
 }
 
 function getCurrentFolderName() {
@@ -2462,14 +2466,119 @@ function rbWireHomeClicks() {
     _rbHomeClickWired = true;
 }
 
+// ---------- Navigation: scroll-position memory + edge-swipe back ----------
+let _rbHomeScroll = 0; // remembered home scroll Y when opening a recipe
+
+function rbRememberHomeScroll() {
+    _rbHomeScroll = window.scrollY || document.documentElement.scrollTop || 0;
+}
+
+function rbRestoreHomeScroll() {
+    // Two rAFs so the layout settles before we jump
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        window.scrollTo({ top: _rbHomeScroll || 0, behavior: 'instant' });
+    }));
+}
+
+/* Edge-swipe-back: dragging from the left ~34px edge translates the detail right.
+   Releasing past 32% of width pops back; otherwise snaps back. */
+function rbInstallEdgeSwipe() {
+    const detail = elements.recipeDetail;
+    if (!detail || detail._edgeSwipeInstalled) return;
+    detail._edgeSwipeInstalled = true;
+
+    const TRACK_EDGE = 34;      // px from the left edge to start tracking
+    const POP_THRESHOLD = 0.32; // fraction of viewport width to commit a pop
+    const EASE = 'transform 0.34s cubic-bezier(0.32,0.72,0,1)';
+
+    let tracking = false;
+    let startX = 0, startY = 0, dx = 0, decided = false, horiz = false;
+
+    const reset = (animate) => {
+        detail.style.transition = animate ? EASE : 'none';
+        detail.style.transform = 'translateX(0)';
+    };
+
+    detail.addEventListener('pointerdown', (e) => {
+        // Only the detail page (not its children that capture pointer)
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        const rect = detail.getBoundingClientRect();
+        const localX = e.clientX - rect.left;
+        if (localX > TRACK_EDGE) return;
+        // Don't hijack if the user is starting on the folder picker dropdown
+        if (e.target.closest('.rb-folder-menu')) return;
+        tracking = true;
+        decided = false;
+        horiz = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        dx = 0;
+        detail.style.transition = 'none';
+    }, { passive: true });
+
+    const onMove = (e) => {
+        if (!tracking) return;
+        const dX = e.clientX - startX;
+        const dY = e.clientY - startY;
+        if (!decided) {
+            if (Math.abs(dX) > 8 || Math.abs(dY) > 8) {
+                decided = true;
+                horiz = Math.abs(dX) > Math.abs(dY);
+                if (!horiz) { tracking = false; reset(false); return; }
+            } else return;
+        }
+        dx = Math.max(0, dX);
+        detail.style.transform = `translateX(${dx}px)`;
+    };
+    const end = () => {
+        if (!tracking) return;
+        tracking = false;
+        const w = detail.offsetWidth || window.innerWidth || 400;
+        if (dx > w * POP_THRESHOLD) {
+            // Animate the rest of the way out then pop
+            detail.style.transition = EASE;
+            detail.style.transform = `translateX(${w}px)`;
+            setTimeout(() => {
+                reset(false);
+                showHomeView();
+            }, 320);
+        } else {
+            reset(true);
+        }
+    };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerup', end, { passive: true });
+    window.addEventListener('pointercancel', end, { passive: true });
+}
+
 // Render the editorial home: hero + favorites shelf + collections + recent rows.
 function renderRecipeGrid(filter = '') {
     rbWireHomeClicks();
+    // On desktop the drawer is permanently visible, so always keep it in sync.
+    if (window.matchMedia && window.matchMedia('(min-width: 1024px)').matches) {
+        try { renderDrawer(); } catch (_) {}
+    }
     if (elements.homeTitle) elements.homeTitle.textContent = 'Your kitchen';
+
+    // Big masthead reflects the active view (folder/favs/all).
+    const titleEl = document.querySelector('.rb-app-title');
+    const mastheadName = (() => {
+        if (currentFolderId === 'favorites') return 'Favorites';
+        if (currentFolderId !== 'all') {
+            const f = folders.find(x => x.id === currentFolderId);
+            if (f) return f.name;
+        }
+        return 'Recipe Book';
+    })();
+    if (titleEl) titleEl.innerHTML = `${escapeHtml(mastheadName)}<span class="rb-title-dot">.</span>`;
+
     const homeRecipeCount = document.getElementById('homeRecipeCount');
     if (homeRecipeCount) {
-        const n = recipes.length;
-        homeRecipeCount.textContent = `${n} ${n === 1 ? 'recipe' : 'recipes'}`;
+        // Count reflects the current visible filter (folder/favs/all), not the global total.
+        let visibleCount = recipes.length;
+        if (currentFolderId === 'favorites') visibleCount = recipes.filter(r => r.favorite).length;
+        else if (currentFolderId !== 'all') visibleCount = recipes.filter(r => r.folderId === currentFolderId).length;
+        homeRecipeCount.textContent = `${visibleCount} ${visibleCount === 1 ? 'recipe' : 'recipes'}`;
     }
     // Avatar initial
     const homeAvatarBtn = document.getElementById('homeAvatarBtn');
@@ -2601,10 +2710,11 @@ function renderRecipeGrid(filter = '') {
         }
     }
 
-    // Collections
+    // Collections (drag-to-reorder when "Reorder" toggle is active)
     if (foldersSec) {
         if (folders.length > 0) {
             foldersSec.hidden = false;
+            const reorderOn = foldersSec.dataset.reorder === 'on';
             foldersSec.innerHTML = `
                 <div class="rb-sec-head">
                     <h3 class="rb-sec-title">
@@ -2614,8 +2724,15 @@ function renderRecipeGrid(filter = '') {
                         </svg>
                         Collections
                     </h3>
+                    <button type="button" class="rb-sec-link rb-reorder-toggle ${reorderOn ? 'active' : ''}"
+                            data-folders-reorder="${reorderOn ? 'off' : 'on'}">
+                        ${reorderOn ? 'Done' : 'Reorder'}
+                    </button>
                 </div>
-                <div class="rb-folders">${folders.map(rbFolderTileHtml).join('')}</div>`;
+                <div class="rb-folders" id="rbFoldersGrid" data-reorder="${reorderOn ? 'on' : 'off'}">
+                    ${folders.map((f, i) => rbFolderTileHtml(f, i, reorderOn)).join('')}
+                </div>`;
+            rbWireFolderReorder();
         } else {
             foldersSec.hidden = true;
         }
@@ -2665,10 +2782,20 @@ function rbShelfCardHtml(r) {
         </button>`;
 }
 
-function rbFolderTileHtml(f) {
+function rbFolderTileHtml(f, idx = 0, reorderOn = false) {
     const count = recipes.filter(r => r.folderId === f.id).length;
+    const handle = reorderOn ? `
+        <span class="drag-handle rb-folder-grip" aria-label="Drag to reorder">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+            </svg>
+        </span>` : '';
     return `
-        <button type="button" class="rb-folder rb-press" data-folder-jump="${escapeHtml(f.id)}">
+        <div class="rb-folder rb-press ${reorderOn ? 'reorder-on' : ''}"
+             data-sort-idx="${idx}"
+             ${reorderOn ? '' : `data-folder-jump="${escapeHtml(f.id)}"`}>
             <span class="rb-folder-ic">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                      stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
@@ -2676,8 +2803,49 @@ function rbFolderTileHtml(f) {
                 </svg>
             </span>
             <span class="rb-folder-name">${escapeHtml(f.name)}</span>
-            <span class="rb-folder-count">${count}</span>
-        </button>`;
+            ${reorderOn ? handle : `<span class="rb-folder-count">${count}</span>`}
+        </div>`;
+}
+
+function rbWireFolderReorder() {
+    const sec = document.getElementById('rbFoldersSec');
+    const grid = document.getElementById('rbFoldersGrid');
+    if (!sec || !grid) return;
+
+    // Toggle button
+    const toggle = sec.querySelector('[data-folders-reorder]');
+    if (toggle) {
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const next = sec.dataset.reorder === 'on' ? 'off' : 'on';
+            sec.dataset.reorder = next;
+            renderRecipeGrid(elements.homeSearchInput?.value || '');
+        });
+    }
+
+    if (grid.dataset.reorder !== 'on') return;
+    if (grid._sortableInstalled) return;
+    grid._sortableInstalled = true;
+    makeSortable(
+        grid,
+        () => folders.slice(),
+        (next) => {
+            folders.length = 0;
+            next.forEach(f => folders.push(f));
+            saveFolders();
+            // Sync each folder's new sort to Firebase
+            folders.forEach((f, i) => {
+                f.order = i;
+                if (typeof syncFolderToFirebase === 'function') {
+                    try { syncFolderToFirebase(f); } catch (_) {}
+                }
+            });
+        },
+        () => {
+            renderFoldersList();
+            renderRecipeGrid(elements.homeSearchInput?.value || '');
+        }
+    );
 }
 
 // ---------- Editorial drawer ----------
@@ -2848,12 +3016,21 @@ function selectRecipe(id) {
         return;
     }
 
+    // Remember where the home was scrolled so back-nav can restore it
+    if (elements.recipeHome && elements.recipeHome.style.display !== 'none') {
+        rbRememberHomeScroll();
+    }
+
     // Hide home view and empty state, show recipe detail
     elements.emptyState.style.display = 'none';
     if (elements.recipeHome) elements.recipeHome.style.display = 'none';
     elements.recipeDetail.style.display = 'block';
+    // Reset any leftover swipe transform from a previous nav
+    elements.recipeDetail.style.transition = 'none';
+    elements.recipeDetail.style.transform = 'translateX(0)';
+    rbInstallEdgeSwipe();
 
-    // Scroll to top when opening a recipe
+    // Scroll the detail to top when opening (the home scroll is preserved separately)
     window.scrollTo({ top: 0, behavior: 'instant' });
 
     // Title (now overlaid on the hero)
@@ -4001,26 +4178,29 @@ function setupEventListeners() {
         if (currentRecipeId) toggleFavorite(currentRecipeId);
     });
 
-    // Cooking mode — Wake Lock API keeps screen on
+    // Cooking mode — Wake Lock API keeps screen on. Button label clearly toggles Start/Stop.
     let wakeLock = null;
     const cookingModeBtn = document.getElementById('cookingModeBtn');
+
+    function setCookingLabel(on) {
+        if (!cookingModeBtn) return;
+        const label = cookingModeBtn.querySelector('.rb-cook-label');
+        if (label) label.textContent = on ? 'Stop cooking mode' : 'Start cooking mode';
+        cookingModeBtn.classList.toggle('active', on);
+    }
 
     async function setCookingMode(on) {
         if (on) {
             try {
                 wakeLock = await navigator.wakeLock.request('screen');
-                cookingModeBtn.classList.add('active');
-                cookingModeBtn.querySelector('svg').innerHTML = '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>';
-                cookingModeBtn.childNodes[2].textContent = ' Screen stays on';
+                setCookingLabel(true);
                 wakeLock.addEventListener('release', () => {
                     wakeLock = null;
-                    cookingModeBtn.classList.remove('active');
-                    cookingModeBtn.querySelector('svg').innerHTML = '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"></path><path d="M12 6v6l4 2"></path>';
-                    cookingModeBtn.childNodes[2].textContent = ' Cooking Mode';
+                    setCookingLabel(false);
                 });
             } catch (e) {
                 console.warn('Wake lock not available:', e.message);
-                cookingModeBtn.textContent = 'Screen lock not supported';
+                showToast('Screen lock not supported on this device', 'error');
             }
         } else {
             await wakeLock?.release();

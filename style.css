@@ -2267,25 +2267,32 @@ input:focus, textarea:focus, select:focus {
     font-size: 11px; font-weight: 600; letter-spacing: 0.18em; color: var(--text-muted);
 }
 
-/* + NEW recipe band */
+/* + NEW recipe band — quiet tinted card so it doesn't dominate the home */
 .rb-new-band {
     display: block; width: calc(100% - 40px); margin: 0 20px 22px;
     text-align: left; cursor: pointer; position: relative;
-    padding: 18px 18px 16px; border: none;
-    border-radius: var(--radius); background: var(--accent); color: var(--accent-ink);
+    padding: 16px 18px 14px;
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
     overflow: hidden;
 }
+.rb-new-band:hover { border-color: var(--border2); }
 .rb-new-label {
     position: absolute; top: 16px; right: 18px;
-    font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.16em;
+    color: var(--accent);
 }
 .rb-new-title {
-    display: block; font-family: var(--font-display); font-style: italic; font-size: 30px;
-    line-height: 1; font-weight: var(--title-weight); letter-spacing: var(--title-ls);
+    display: block; font-family: var(--font-display); font-style: italic; font-size: 22px;
+    line-height: 1.15; font-weight: var(--title-weight); letter-spacing: var(--title-ls);
+    color: var(--text-primary);
 }
-.rb-new-band .rb-title-dot { color: var(--accent-ink); }
+.rb-new-band .rb-title-dot { color: var(--accent-dot); }
 .rb-new-sub {
-    display: block; margin-top: 9px; font-size: 12.5px; font-weight: 500; opacity: 0.72;
+    display: block; margin-top: 4px; font-size: 12.5px; font-weight: 500;
+    color: var(--text-muted);
     font-family: var(--font-body);
 }
 
@@ -2368,6 +2375,30 @@ input:focus, textarea:focus, select:focus {
     font-family: var(--font-display); letter-spacing: var(--title-ls);
 }
 .rb-folder-count { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.rb-folder-grip {
+    color: var(--text-muted);
+    cursor: grab;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px;
+}
+.rb-folder.reorder-on { cursor: grab; user-select: none; }
+.rb-folder.reorder-on:active { cursor: grabbing; }
+[data-reorder="on"] .rb-folder { animation: rbWiggle 0.45s ease infinite alternate; }
+@keyframes rbWiggle {
+    from { transform: rotate(-0.3deg); }
+    to   { transform: rotate(0.3deg); }
+}
+.rb-sec-link.rb-reorder-toggle {
+    border: 1px solid var(--border-color); background: none;
+    padding: 4px 10px; border-radius: 4px; cursor: pointer;
+    color: var(--accent); font-weight: 600;
+}
+.rb-sec-link.rb-reorder-toggle.active {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+}
+.rb-folder.sidebar-item-dragging { opacity: 0.7; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.rb-folder.sidebar-item-drag-above { box-shadow: 0 -2px 0 var(--accent); }
+.rb-folder.sidebar-item-drag-below { box-shadow: 0 2px 0 var(--accent); }
 
 /* Recent rows */
 .rb-rows { display: flex; flex-direction: column; gap: 8px; }
@@ -3028,6 +3059,7 @@ input:focus, textarea:focus, select:focus {
 /* ---------- DETAIL: action toolbar folder popover ---------- */
 .rb-folder-wrap { position: relative; flex: 1; max-width: 52px; display: flex; }
 .rb-folder-wrap .rb-act-btn { max-width: none; width: 100%; flex: 1; }
+.rb-folder-menu[hidden] { display: none !important; }
 .rb-folder-menu {
     position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
     min-width: 200px;
@@ -3191,6 +3223,13 @@ input:focus, textarea:focus, select:focus {
 
 /* Inline icon + text for cooking-mode label */
 .rb-cook-btn { font-style: italic; white-space: nowrap; }
+/* When active (wake-lock on) the button switches to a quieter outline + green dot */
+.rb-cook-btn.active {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid color-mix(in oklab, var(--accent2), transparent 50%) !important;
+}
+.rb-cook-btn.active svg { color: var(--accent2); }
 
 /* ---------- DRAWER (slide-in editorial nav) ---------- */
 .rb-drawer-root {
@@ -3510,13 +3549,64 @@ input:focus, textarea:focus, select:focus {
 }
 .rb-toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-/* ---------- Hide desktop sidebar/mobile-header (drawer takes over) ---------- */
+/* ---------- Legacy sidebar/header hidden (drawer is the primary nav) ---------- */
 .sidebar { display: none !important; }
 .mobile-header { display: none !important; }
 .main-content {
     margin-left: 0 !important;
     padding: 0 !important;
     padding-top: 0 !important;
+}
+
+/* ---------- Desktop: pin the drawer as a persistent sidebar ---------- */
+@media (min-width: 1024px) {
+    /* Drawer stays open and locked in place */
+    .rb-drawer-root {
+        position: static;
+        pointer-events: auto;
+    }
+    .rb-drawer-root .rb-drawer-scrim { display: none; }
+    .rb-drawer {
+        position: fixed;
+        top: 0; bottom: 0; left: 0;
+        width: 300px; max-width: 300px;
+        transform: none !important;
+        box-shadow: none;
+        border-right: 1px solid var(--border-color);
+        transition: none;
+    }
+    .rb-drawer-top { padding-top: 32px; }
+    /* Close (×) becomes redundant when the drawer is pinned */
+    .rb-drawer-close { display: none; }
+
+    /* Push the main app content to make room for the sidebar */
+    .app {
+        display: block;
+    }
+    .main-content {
+        margin-left: 300px !important;
+    }
+    .recipe-home,
+    .recipe-detail#recipeDetail {
+        max-width: 880px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    /* Hide the in-home burger on desktop (the sidebar is always there) */
+    .rb-topbar #homeMenuBtn { display: none; }
+    .rb-topbar { padding-left: 40px; padding-right: 40px; }
+    .rb-head { padding-left: 40px !important; padding-right: 40px !important; }
+    .rb-touched { padding-left: 40px !important; padding-right: 40px !important; }
+    .rb-sec { margin-left: 40px; margin-right: 40px; }
+    .rb-new-band { width: calc(100% - 80px); margin-left: 40px; margin-right: 40px; }
+    /* Detail hero stays edge-to-edge but inner sections breathe more */
+    .rb-d-sec { padding-left: 40px; padding-right: 40px; }
+    .rb-d-chips { padding-left: 40px; padding-right: 40px; }
+    .rb-actions { padding-left: 40px; padding-right: 40px; }
+    .rb-cook-btn { width: calc(100% - 80px); margin-left: 40px; margin-right: 40px; }
+    /* Send to Nook send-bar sits relative to its container, not viewport */
+    .rb-send-bar { left: 300px; }
+    /* Edge-swipe is disabled on desktop (no touch screen) — clear inline transforms */
 }
 .recipe-home {
     padding: 0 !important;

@@ -22,7 +22,7 @@
     <script>
         // Force reload when a new version is deployed, even if HTML is cached
         (function() {
-            var VERSION = '20260530a';
+            var VERSION = '20260530b';
             if (localStorage.getItem('rbVersion') !== VERSION) {
                 localStorage.setItem('rbVersion', VERSION);
                 if (!location.search.includes(VERSION)) {
@@ -31,7 +31,7 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260530a">
+    <link rel="stylesheet" href="style.css?v=20260530b">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
@@ -1022,7 +1022,7 @@
 
     <!-- PDF.js for PDF text extraction -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="app.js?v=20260530a"></script>
+    <script src="app.js?v=20260530b"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
