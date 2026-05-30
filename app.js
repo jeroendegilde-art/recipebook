@@ -2380,111 +2380,403 @@ function getCurrentFolderName() {
     return folder ? folder.name : 'My Recipes';
 }
 
-// Render the recipe grid on home page
-/* Generate a typographic tile for a recipe.
-   If the recipe has an image, render it; otherwise produce a colored
-   gradient + big serif initial that's editorial-friendly. */
+// ============================================
+// Editorial home rendering
+// ============================================
+
+// Deterministic hash → hue index. Keeps tile colors stable between sessions.
+function rbHash(str) {
+    let h = 0;
+    const s = String(str || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
+}
+
+// Editorial palette: alternating coral/green tones derived from the recipe id.
+function rbTileFor(recipe) {
+    const hues = [14, 22, 30, 38, 8, 90, 100, 70]; // mix of coral + green ranges
+    const seed = rbHash(recipe.id || recipe.title || 'x');
+    const hue = hues[seed % hues.length];
+    const initial = (recipe.title || '?').trim().charAt(0).toUpperCase();
+    return { hue, seed, initial };
+}
+
+/* Generate the AMOLED-friendly background tile for a recipe.
+   variant: 'hero' | 'card' | 'thumb'  →  controls monogram size + blur. */
 function generateRecipeTile(recipe, opts = {}) {
     const variant = opts.variant || 'thumb';
     if (recipe.image) {
-        return `<div class="rb-tile rb-tile-${variant}"><img src="${escapeHtml(recipe.image)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"/></div>`;
-    }
-    const title = recipe.title || 'Recipe';
-    const initial = title.trim().charAt(0).toUpperCase();
-    // Deterministic hue from title
-    let h = 0;
-    for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) | 0;
-    const hues = [22, 30, 38, 14, 8, 25, 200, 162];
-    const hue = hues[Math.abs(h) % hues.length];
-    const glow = `hsl(${hue} 56% 60%)`;
-    const monoColor = `hsl(${hue} 50% 75%)`;
-    const monoFont = variant === 'hero' ? 120 : variant === 'card' ? 90 : 60;
-    return `
-        <div class="rb-tile rb-tile-${variant}">
-            <div class="rb-tile-glow" style="background: radial-gradient(120% 120% at 35% 25%, ${glow} 0%, transparent 60%);"></div>
+        return `<div class="rb-tile rb-tile-${variant}">
+            <img src="${escapeHtml(recipe.image)}" alt=""
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"
+                 onerror="this.style.display='none'">
             <div class="rb-tile-shade"></div>
-            <div class="rb-tile-mono" style="font-size:${monoFont}px;color:${monoColor};">${escapeHtml(initial)}</div>
+        </div>`;
+    }
+    const t = rbTileFor(recipe);
+    const sizes = {
+        hero:  { mono: 168, blur: 70, op: 0.13, gop: 0.42 },
+        card:  { mono: 120, blur: 36, op: 0.16, gop: 0.40 },
+        thumb: { mono: 60,  blur: 18, op: 0.18, gop: 0.36 },
+    }[variant];
+    const gx = 30 + (t.seed % 40);
+    const gy = 20 + ((t.seed >> 3) % 30);
+    const glow = `hsl(${t.hue} 56% 50%)`;
+    const monoColor = `hsl(${t.hue} 56% 74%)`;
+    const monoStyle = variant === 'thumb'
+        ? 'right:50%;bottom:50%;transform:translate(50%,50%)'
+        : 'right:-6px;top:-30px';
+    return `
+        <div class="rb-tile rb-tile-${variant}" style="background:#050505;position:relative;overflow:hidden;width:100%;height:100%">
+            <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at ${gx}% ${gy}%, ${glow} 0%, transparent ${variant === 'thumb' ? 62 : 58}%);opacity:${sizes.gop};filter:blur(${sizes.blur}px)"></div>
+            <div class="rb-tile-shade"></div>
+            <div class="rb-tile-mono" style="position:absolute;${monoStyle};font-size:${sizes.mono}px;line-height:1;font-weight:800;color:${monoColor};opacity:${sizes.op};letter-spacing:-0.04em;user-select:none;pointer-events:none">${escapeHtml(t.initial)}</div>
         </div>
     `;
 }
 
+// Tap handler installed on the home sections — single delegated listener.
+function rbHandleHomeClick(e) {
+    const recipeEl = e.target.closest('[data-recipe-id]');
+    if (recipeEl) {
+        const id = recipeEl.dataset.recipeId;
+        if (id) selectRecipe(id);
+        return;
+    }
+    const folderEl = e.target.closest('[data-folder-jump]');
+    if (folderEl) {
+        const id = folderEl.dataset.folderJump;
+        currentFolderId = id;
+        renderFoldersList();
+        renderRecipeGrid();
+        return;
+    }
+}
+
+let _rbHomeClickWired = false;
+function rbWireHomeClicks() {
+    if (_rbHomeClickWired) return;
+    const home = elements.recipeHome;
+    if (!home) return;
+    home.addEventListener('click', rbHandleHomeClick);
+    _rbHomeClickWired = true;
+}
+
+// Render the editorial home: hero + favorites shelf + collections + recent rows.
 function renderRecipeGrid(filter = '') {
-    if (elements.homeTitle) elements.homeTitle.textContent = getCurrentFolderName();
+    rbWireHomeClicks();
+    if (elements.homeTitle) elements.homeTitle.textContent = 'Your kitchen';
     const homeRecipeCount = document.getElementById('homeRecipeCount');
     if (homeRecipeCount) {
         const n = recipes.length;
         homeRecipeCount.textContent = `${n} ${n === 1 ? 'recipe' : 'recipes'}`;
     }
-    // Avatar initial — first letter of signed-in user (fallback N)
+    // Avatar initial
     const homeAvatarBtn = document.getElementById('homeAvatarBtn');
-    if (homeAvatarBtn && currentUser) {
-        const name = currentUser.displayName || currentUser.email || 'N';
+    if (homeAvatarBtn) {
+        const name = (currentUser && (currentUser.displayName || currentUser.email)) || 'N';
         homeAvatarBtn.textContent = (name[0] || 'N').toUpperCase();
     }
-
-    let filteredRecipes = filter
-        ? recipes.filter(r => r.title.toLowerCase().includes(filter.toLowerCase()))
-        : recipes;
-
-    // Filter by folder / favorites
-    if (currentFolderId === 'favorites') {
-        filteredRecipes = filteredRecipes.filter(r => r.favorite);
-    } else if (currentFolderId !== 'all') {
-        filteredRecipes = filteredRecipes.filter(r => r.folderId === currentFolderId);
+    // Search placeholder reflects count
+    if (elements.homeSearchInput) {
+        elements.homeSearchInput.placeholder = `Search ${recipes.length} recipes…`;
     }
 
+    // Apply text filter (folder filter only applies when not on "all")
+    const term = (filter || '').trim().toLowerCase();
+    const allRecipes = term
+        ? recipes.filter(r => (r.title || '').toLowerCase().includes(term))
+        : recipes.slice();
+
+    let filtered = allRecipes;
+    if (currentFolderId === 'favorites') {
+        filtered = allRecipes.filter(r => r.favorite);
+    } else if (currentFolderId !== 'all') {
+        filtered = allRecipes.filter(r => r.folderId === currentFolderId);
+    }
+
+    // No recipes at all → onboarding empty state
     if (recipes.length === 0) {
-        // No recipes at all - show empty state
         elements.recipeHome.style.display = 'none';
         elements.emptyState.style.display = 'flex';
         return;
     }
-
     elements.emptyState.style.display = 'none';
     elements.recipeHome.style.display = 'block';
 
-    if (filteredRecipes.length === 0) {
-        elements.recipeGrid.innerHTML = `
-            <div class="recipe-grid-empty">
-                <p>No recipes found</p>
-            </div>
-        `;
+    const heroSec    = document.getElementById('rbHeroSec');
+    const favSec     = document.getElementById('rbFavSec');
+    const foldersSec = document.getElementById('rbFoldersSec');
+    const recentSec  = document.getElementById('rbRecentSec');
+    const footEl     = document.getElementById('rbHomeFoot');
+
+    // ---- Filtered / search view: rich rows only ----
+    const isFiltered = term !== '' || currentFolderId !== 'all';
+    if (isFiltered) {
+        if (heroSec) heroSec.hidden = true;
+        if (favSec) favSec.hidden = true;
+        if (foldersSec) foldersSec.hidden = true;
+        const header = currentFolderId === 'favorites' ? 'Favorites'
+            : (folders.find(f => f.id === currentFolderId)?.name || 'Results');
+        if (recentSec) {
+            recentSec.hidden = false;
+            recentSec.innerHTML = filtered.length === 0
+                ? `<div class="rb-empty-row">No recipes found</div>`
+                : `<div class="rb-sec-head">
+                       <h3 class="rb-sec-title">${escapeHtml(header)}</h3>
+                       <span class="rb-sec-link" data-folder-jump="all">All recipes</span>
+                   </div>
+                   <div class="rb-rows">
+                       ${filtered.map(rbRowHtml).join('')}
+                   </div>`;
+        }
+        if (footEl) {
+            footEl.hidden = false;
+            footEl.textContent = `${filtered.length} ${filtered.length === 1 ? 'recipe' : 'recipes'} · synced`;
+        }
         return;
     }
 
-    elements.recipeGrid.innerHTML = filteredRecipes.map(recipe => {
-        const folder = folders.find(f => f.id === recipe.folderId);
-        const tile = generateRecipeTile(recipe, { variant: 'card' });
-        const sub = [];
-        if (recipe.servings) sub.push(escapeHtml(recipe.servings));
-        sub.push(`${recipe.ingredients?.length || 0} ingredients`);
-        if (folder) sub.push(escapeHtml(folder.name));
-        return `
-            <button type="button" class="rb-card rb-press recipe-card" data-id="${recipe.id}">
-                <div class="rb-card-media">
-                    ${tile}
-                    ${recipe.favorite ? `<span class="rb-card-fav">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.6l5.8-.8z"/></svg>
-                    </span>` : ''}
-                </div>
-                <div class="rb-card-body">
-                    <h3 class="rb-card-title">${escapeHtml(recipe.title)}</h3>
-                    <div class="rb-card-sub">${sub.map((s, i) => i === 0 ? `<span>${s}</span>` : `<span class="rb-dot">·</span><span>${s}</span>`).join('')}</div>
-                </div>
-            </button>
-        `;
-    }).join('');
+    // ---- Default home: hero + favs + folders + recent ----
+    const favs = recipes.filter(r => r.favorite);
+    const hero = favs[0] || recipes[0];
+    const recent = recipes.filter(r => r.id !== (hero && hero.id));
 
-    // Add click handlers directly to each card (backup for event delegation)
-    elements.recipeGrid.querySelectorAll('.recipe-card').forEach(card => {
-        card.onclick = function(e) {
-            e.preventDefault();
-            const recipeId = this.dataset.id;
-            if (recipeId) {
-                selectRecipe(recipeId);
-            }
-        };
-    });
+    // Hero
+    if (heroSec && hero) {
+        heroSec.hidden = false;
+        const folder = folders.find(f => f.id === hero.folderId);
+        const chips = [];
+        if (hero.servings) chips.push(`
+            <span class="rb-stat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                    <path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 4.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4M19.5 20v-1.5a3.5 3.5 0 0 0-2.6-3.4"></path>
+                </svg>${escapeHtml(hero.servings)}
+            </span>`);
+        if (folder) chips.push(`
+            <span class="rb-stat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                </svg>${escapeHtml(folder.name)}
+            </span>`);
+        heroSec.innerHTML = `
+            <button type="button" class="rb-hero rb-press" data-recipe-id="${escapeHtml(hero.id)}">
+                ${generateRecipeTile(hero, { variant: 'hero' })}
+                <div class="rb-hero-inner">
+                    <span class="rb-hero-tag">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
+                            <path d="M12 3c1 3-1.5 4-1.5 6.5A3 3 0 0 0 13 12c.5-.7.5-1.5.5-1.5 1 1 2.5 2.4 2.5 5a4.5 4.5 0 1 1-9 0c0-3.6 4-5.4 5-12.5z"></path>
+                        </svg>
+                        Tonight's pick
+                    </span>
+                    <h2 class="rb-hero-title">${escapeHtml(hero.title)}</h2>
+                    <div class="rb-stats">${chips.join('')}</div>
+                </div>
+            </button>`;
+    } else if (heroSec) {
+        heroSec.hidden = true;
+    }
+
+    // Favorites shelf
+    if (favSec) {
+        if (favs.length > 0) {
+            favSec.hidden = false;
+            favSec.innerHTML = `
+                <div class="rb-sec-head">
+                    <h3 class="rb-sec-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                             stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                            <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.6l5.8-.8z"></path>
+                        </svg>
+                        Favorites
+                    </h3>
+                    <span class="rb-sec-link" data-folder-jump="favorites">See all</span>
+                </div>
+                <div class="rb-shelf">${favs.map(rbShelfCardHtml).join('')}</div>`;
+        } else {
+            favSec.hidden = true;
+        }
+    }
+
+    // Collections
+    if (foldersSec) {
+        if (folders.length > 0) {
+            foldersSec.hidden = false;
+            foldersSec.innerHTML = `
+                <div class="rb-sec-head">
+                    <h3 class="rb-sec-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                             stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        </svg>
+                        Collections
+                    </h3>
+                </div>
+                <div class="rb-folders">${folders.map(rbFolderTileHtml).join('')}</div>`;
+        } else {
+            foldersSec.hidden = true;
+        }
+    }
+
+    // Recently added
+    if (recentSec) {
+        if (recent.length > 0) {
+            recentSec.hidden = false;
+            recentSec.innerHTML = `
+                <div class="rb-sec-head">
+                    <h3 class="rb-sec-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                             stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                            <path d="M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM12 7.5V12l3 2"></path>
+                        </svg>
+                        Recently added
+                    </h3>
+                </div>
+                <div class="rb-rows">${recent.map(rbRowHtml).join('')}</div>`;
+        } else {
+            recentSec.hidden = true;
+        }
+    }
+
+    if (footEl) {
+        footEl.hidden = false;
+        footEl.textContent = `${recipes.length} ${recipes.length === 1 ? 'recipe' : 'recipes'} · synced`;
+    }
+}
+
+function rbShelfCardHtml(r) {
+    return `
+        <button type="button" class="rb-shelf-card rb-press" data-recipe-id="${escapeHtml(r.id)}">
+            <div class="rb-shelf-thumb">
+                ${generateRecipeTile(r, { variant: 'card' })}
+                <span class="rb-fav-dot">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
+                        <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.6l5.8-.8z"/>
+                    </svg>
+                </span>
+            </div>
+            <div class="rb-shelf-meta">
+                <div class="rb-shelf-title">${escapeHtml(r.title)}</div>
+                <div class="rb-shelf-sub">${r.servings ? escapeHtml(r.servings) : `${r.ingredients?.length || 0} ingredients`}</div>
+            </div>
+        </button>`;
+}
+
+function rbFolderTileHtml(f) {
+    const count = recipes.filter(r => r.folderId === f.id).length;
+    return `
+        <button type="button" class="rb-folder rb-press" data-folder-jump="${escapeHtml(f.id)}">
+            <span class="rb-folder-ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                </svg>
+            </span>
+            <span class="rb-folder-name">${escapeHtml(f.name)}</span>
+            <span class="rb-folder-count">${count}</span>
+        </button>`;
+}
+
+// ---------- Editorial drawer ----------
+function openDrawer() {
+    renderDrawer();
+    const root = document.getElementById('rbDrawerRoot');
+    if (root) root.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+function closeDrawer() {
+    const root = document.getElementById('rbDrawerRoot');
+    if (root) root.classList.remove('open');
+    document.body.style.overflow = '';
+}
+function renderDrawer() {
+    const av = document.getElementById('rbDrawerProfileAv');
+    const name = document.getElementById('rbDrawerProfileName');
+    const mail = document.getElementById('rbDrawerProfileMail');
+    if (currentUser) {
+        const display = currentUser.displayName || currentUser.email || 'You';
+        if (av) {
+            if (currentUser.photoURL) av.innerHTML = `<img src="${escapeHtml(currentUser.photoURL)}" alt="">`;
+            else { av.innerHTML = ''; av.textContent = (display[0] || 'N').toUpperCase(); }
+        }
+        if (name) name.textContent = display;
+        if (mail) mail.textContent = currentUser.email || '';
+    } else {
+        if (av) { av.innerHTML = ''; av.textContent = 'N'; }
+        if (name) name.textContent = 'Sign in';
+        if (mail) mail.textContent = 'to sync across devices';
+    }
+
+    const allCount = document.getElementById('rbDrawerAllCount');
+    if (allCount) allCount.textContent = String(recipes.length);
+    const favCount = document.getElementById('rbDrawerFavCount');
+    if (favCount) favCount.textContent = String(recipes.filter(r => r.favorite).length);
+
+    const folderHost = document.getElementById('rbDrawerFolders');
+    if (folderHost) {
+        if (folders.length === 0) {
+            folderHost.innerHTML = `<div class="rb-menu-empty" style="padding:8px 11px;font-size:12.5px;color:var(--text-muted)">No collections yet</div>`;
+        } else {
+            folderHost.innerHTML = folders.map(f => `
+                <button type="button" class="rb-menu-row rb-press" data-drawer-folder="${escapeHtml(f.id)}">
+                    <span class="rb-menu-ic">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        </svg>
+                    </span>
+                    <span class="rb-menu-label">${escapeHtml(f.name)}</span>
+                    <span class="rb-menu-count">${recipes.filter(r => r.folderId === f.id).length}</span>
+                </button>`).join('');
+            folderHost.querySelectorAll('[data-drawer-folder]').forEach(el => {
+                el.addEventListener('click', () => {
+                    currentFolderId = el.dataset.drawerFolder;
+                    renderFoldersList();
+                    renderRecipeGrid();
+                    showHomeView();
+                    closeDrawer();
+                });
+            });
+        }
+    }
+
+    // Sync status mirrors the main sync indicator
+    const syncLabel = document.getElementById('rbDrawerSyncLabel');
+    if (syncLabel && elements.syncStatusText) {
+        syncLabel.textContent = elements.syncStatusText.textContent || 'Synced';
+    }
+}
+
+function rbRowHtml(r) {
+    const folder = folders.find(f => f.id === r.folderId);
+    const sub = [];
+    if (r.servings) sub.push(escapeHtml(r.servings));
+    else sub.push(`${r.ingredients?.length || 0} ingredients`);
+    if (folder) sub.push(escapeHtml(folder.name));
+    const star = r.favorite ? `
+        <span class="rb-row-star">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
+                <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.6l5.8-.8z"/>
+            </svg>
+        </span>` : '';
+    return `
+        <button type="button" class="rb-row rb-press" data-recipe-id="${escapeHtml(r.id)}">
+            <div class="rb-row-thumb">${generateRecipeTile(r, { variant: 'thumb' })}</div>
+            <div class="rb-row-body">
+                <div class="rb-row-title">${escapeHtml(r.title)}</div>
+                <div class="rb-row-sub">${sub.map((s,i) => i === 0 ? `<span>${s}</span>` : `<span class="rb-dot">·</span><span>${s}</span>`).join('')}</div>
+            </div>
+            ${star}
+            <span class="rb-row-chev">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                    <path d="M9 5l7 7-7 7"></path>
+                </svg>
+            </span>
+        </button>`;
 }
 
 function renderRecipeList(filter = '') {
@@ -2558,24 +2850,35 @@ function selectRecipe(id) {
 
     // Hide home view and empty state, show recipe detail
     elements.emptyState.style.display = 'none';
-    if (elements.recipeHome) {
-        elements.recipeHome.style.display = 'none';
-    }
+    if (elements.recipeHome) elements.recipeHome.style.display = 'none';
     elements.recipeDetail.style.display = 'block';
 
     // Scroll to top when opening a recipe
     window.scrollTo({ top: 0, behavior: 'instant' });
 
-    // Show sticky header immediately (hidden until scroll)
-    showRecipeStickyHeader(recipe.title);
-
-    // Update content
+    // Title (now overlaid on the hero)
     elements.recipeTitle.textContent = recipe.title;
+
+    // Folder kicker above title
+    const folderKicker = document.getElementById('recipeFolderKicker');
+    const folderOfRecipe = folders.find(f => f.id === recipe.folderId);
+    if (folderKicker) {
+        if (folderOfRecipe) {
+            folderKicker.textContent = folderOfRecipe.name;
+            folderKicker.hidden = false;
+        } else {
+            folderKicker.hidden = true;
+        }
+    }
 
     if (recipe.source) {
         elements.recipeSource.href = recipe.source;
-        elements.recipeSource.textContent = new URL(recipe.source).hostname;
-        elements.recipeSource.style.display = 'inline';
+        try {
+            elements.recipeSource.textContent = new URL(recipe.source).hostname;
+        } catch (e) {
+            elements.recipeSource.textContent = recipe.source;
+        }
+        elements.recipeSource.style.display = 'inline-block';
     } else {
         elements.recipeSource.style.display = 'none';
     }
@@ -2585,24 +2888,46 @@ function selectRecipe(id) {
         elements.favoriteBtn.classList.toggle('is-favorite', !!recipe.favorite);
     }
 
-    // Show recipe image
-    if (elements.recipeImageWrap) {
-        console.log('[Image] selectRecipe image:', recipe.image?.substring(0, 100) || '(none)');
-        if (recipe.image) {
-            elements.recipeImage.src = recipe.image;
-            elements.recipeImage.alt = recipe.title;
-            elements.recipeImageWrap.style.display = 'block';
-        } else {
-            elements.recipeImageWrap.style.display = 'none';
-        }
+    // Hero background — photo or generated tile
+    const heroTile = document.getElementById('recipeHeroTile');
+    if (recipe.image) {
+        elements.recipeImage.src = recipe.image;
+        elements.recipeImage.alt = recipe.title;
+        elements.recipeImage.style.display = 'block';
+        if (heroTile) heroTile.innerHTML = '';
+    } else {
+        elements.recipeImage.style.display = 'none';
+        elements.recipeImage.removeAttribute('src');
+        if (heroTile) heroTile.innerHTML = generateRecipeTile(recipe, { variant: 'hero' });
     }
 
-    // Show servings if available
+    // Meta chips: servings · "N ingredients" · folder
     if (recipe.servings) {
         elements.servingsText.textContent = recipe.servings;
-        elements.servingsDisplay.style.display = 'flex';
+        elements.servingsDisplay.hidden = false;
     } else {
-        elements.servingsDisplay.style.display = 'none';
+        elements.servingsDisplay.hidden = true;
+    }
+    const ingCountChip = document.getElementById('ingCountChip');
+    const ingCountText = document.getElementById('ingCountText');
+    const ingCount = recipe.ingredients?.length || 0;
+    if (ingCountChip && ingCountText) {
+        if (ingCount > 0) {
+            ingCountText.textContent = `${ingCount} ingredients`;
+            ingCountChip.hidden = false;
+        } else {
+            ingCountChip.hidden = true;
+        }
+    }
+    const folderChip = document.getElementById('folderChip');
+    const folderChipText = document.getElementById('folderChipText');
+    if (folderChip && folderChipText) {
+        if (folderOfRecipe) {
+            folderChipText.textContent = folderOfRecipe.name;
+            folderChip.hidden = false;
+        } else {
+            folderChip.hidden = true;
+        }
     }
 
     // Reset multiplier and wire buttons
@@ -2626,12 +2951,15 @@ function selectRecipe(id) {
             .map((ing, i) => {
                 const scaled = scaleIngredient(ing, currentMultiplier);
                 const isChecked = checkedItems.includes(i);
-                return `<li class="ingredient-item${isChecked ? ' checked' : ''}" data-index="${i}">${escapeHtml(scaled)}</li>`;
+                const check = isChecked ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M5 12.5L10 17l9-10"></path></svg>` : '';
+                return `<li class="rb-ing ingredient-item${isChecked ? ' done checked' : ''}" data-index="${i}">
+                    <span class="rb-ing-box">${check}</span>
+                    <span class="rb-ing-text ingredient-text">${escapeHtml(scaled)}</span>
+                </li>`;
             })
             .join('');
-        // Show reset button only when something is checked
         if (elements.resetChecklistBtn) {
-            elements.resetChecklistBtn.style.display = checkedItems.length > 0 ? '' : 'none';
+            elements.resetChecklistBtn.hidden = checkedItems.length === 0;
         }
     };
 
@@ -2639,17 +2967,14 @@ function selectRecipe(id) {
 
     // Ingredient tap-to-check
     elements.ingredientsList.onclick = (e) => {
-        const li = e.target.closest('.ingredient-item');
+        const li = e.target.closest('.rb-ing, .ingredient-item');
         if (!li) return;
         const idx = parseInt(li.dataset.index, 10);
         const pos = checkedItems.indexOf(idx);
         if (pos === -1) checkedItems.push(idx);
         else checkedItems.splice(pos, 1);
         localStorage.setItem(checkedKey, JSON.stringify(checkedItems));
-        li.classList.toggle('checked', pos === -1);
-        if (elements.resetChecklistBtn) {
-            elements.resetChecklistBtn.style.display = checkedItems.length > 0 ? '' : 'none';
-        }
+        renderIngredients();
     };
 
     // Reset checklist button
@@ -2662,14 +2987,17 @@ function selectRecipe(id) {
     }
 
     elements.instructionsList.innerHTML = recipe.instructions
-        .map(inst => `<li>${escapeHtml(inst)}</li>`)
+        .map(inst => `<li class="rb-step instruction-item">
+            <span class="rb-step-n"></span>
+            <p class="rb-step-t instruction-text">${escapeHtml(inst)}</p>
+        </li>`)
         .join('');
 
     if (recipe.notes) {
-        elements.notesSection.style.display = 'block';
+        elements.notesSection.hidden = false;
         elements.recipeNotes.textContent = recipe.notes;
     } else {
-        elements.notesSection.style.display = 'none';
+        elements.notesSection.hidden = true;
     }
 
     // Update sidebar selection (just highlight, don't re-render grid)
@@ -3228,40 +3556,36 @@ function setupEventListeners() {
         showToast('Recipe added successfully!');
     });
 
-    // Folder picker
+    // Folder picker — editorial popover
     elements.folderPickerBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         const dropdown = elements.folderPickerDropdown;
-        if (dropdown.style.display !== 'none') {
-            dropdown.style.display = 'none';
-            return;
-        }
+        if (!dropdown.hidden) { dropdown.hidden = true; elements.folderPickerBtn.classList.remove('active'); return; }
 
         const recipe = getRecipe(currentRecipeId);
         if (!recipe) return;
 
-        // Build options
-        const noFolderIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
-        const folderIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+        const folderIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>`;
+        const noFolderIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M18 6L6 18M6 6l12 12"></path></svg>`;
 
-        let html = `<button class="folder-picker-option ${!recipe.folderId ? 'active' : ''}" data-folder-id="">
-            ${noFolderIcon} No folder
-        </button>`;
+        let html = `<button class="rb-folder-menu-item ${!recipe.folderId ? 'on' : ''}" data-folder-id="">${noFolderIcon} No folder</button>`;
         folders.forEach(f => {
-            html += `<button class="folder-picker-option ${recipe.folderId === f.id ? 'active' : ''}" data-folder-id="${f.id}">
-                ${folderIcon} ${escapeHtml(f.name)}
-            </button>`;
+            html += `<button class="rb-folder-menu-item ${recipe.folderId === f.id ? 'on' : ''}" data-folder-id="${escapeHtml(f.id)}">${folderIcon} ${escapeHtml(f.name)}</button>`;
         });
-
         dropdown.innerHTML = html;
-        dropdown.style.display = 'block';
+        dropdown.hidden = false;
+        elements.folderPickerBtn.classList.add('active');
 
-        dropdown.querySelectorAll('.folder-picker-option').forEach(btn => {
+        dropdown.querySelectorAll('.rb-folder-menu-item').forEach(btn => {
             btn.addEventListener('click', () => {
                 const folderId = btn.dataset.folderId;
                 updateRecipe(currentRecipeId, { folderId });
                 renderRecipeList(elements.searchInput?.value);
-                dropdown.style.display = 'none';
+                renderRecipeGrid(elements.homeSearchInput?.value || '');
+                dropdown.hidden = true;
+                elements.folderPickerBtn.classList.remove('active');
+                // Refresh the open detail (kicker + chip)
+                if (currentRecipeId) selectRecipe(currentRecipeId);
                 showToast(folderId ? `Moved to ${folders.find(f => f.id === folderId)?.name}` : 'Removed from folder');
             });
         });
@@ -3270,7 +3594,10 @@ function setupEventListeners() {
     // Close folder picker when clicking outside
     document.addEventListener('click', (e) => {
         if (elements.folderPickerWrap && !elements.folderPickerWrap.contains(e.target)) {
-            if (elements.folderPickerDropdown) elements.folderPickerDropdown.style.display = 'none';
+            if (elements.folderPickerDropdown && !elements.folderPickerDropdown.hidden) {
+                elements.folderPickerDropdown.hidden = true;
+                elements.folderPickerBtn?.classList.remove('active');
+            }
         }
     });
 
@@ -3379,20 +3706,24 @@ function setupEventListeners() {
         showToast('Recipe updated!');
     });
 
-    // Delete recipe
+    // Delete recipe — two-tap confirm in the editorial style
+    let deleteArmedTimer = null;
     elements.deleteRecipeBtn.addEventListener('click', () => {
-        if (!confirm('Are you sure you want to delete this recipe?')) return;
-
+        const btn = elements.deleteRecipeBtn;
+        if (!btn.classList.contains('armed')) {
+            btn.classList.add('armed');
+            showToast('Tap delete again to confirm');
+            clearTimeout(deleteArmedTimer);
+            deleteArmedTimer = setTimeout(() => btn.classList.remove('armed'), 2500);
+            return;
+        }
+        clearTimeout(deleteArmedTimer);
+        btn.classList.remove('armed');
         deleteRecipe(currentRecipeId);
         currentRecipeId = null;
         renderRecipeList();
-
-        // Select first recipe if available
-        if (recipes.length > 0) {
-            selectRecipe(recipes[0].id);
-        }
-
         showToast('Recipe deleted');
+        showHomeView();
     });
 
     // Share recipe as PDF
@@ -3518,21 +3849,33 @@ function setupEventListeners() {
         }
     });
 
-    // ── Send to Nook ─────────────────────────────────────────────
-    function updateSendToNookSelectAllState() {
-        const boxes = elements.sendToNookList.querySelectorAll('input[type="checkbox"]');
-        const total = boxes.length;
-        const checked = Array.from(boxes).filter(b => b.checked).length;
-        if (elements.sendToNookSelectAll) {
-            elements.sendToNookSelectAll.checked = total > 0 && checked === total;
-            elements.sendToNookSelectAll.indeterminate = checked > 0 && checked < total;
-        }
+    // ── Send to Nook — full-screen editorial flow ────────────────
+    // Per-row selection state lives on the <li>.on class; count is derived from it.
+    function nookItems() {
+        return Array.from(elements.sendToNookList?.querySelectorAll('.rb-nook-item') || []);
+    }
+    function nookSelected() {
+        return nookItems().filter(li => li.classList.contains('on'));
+    }
+    function refreshNookControl() {
+        const items = nookItems();
+        const sel = nookSelected();
+        const allOn = items.length > 0 && sel.length === items.length;
         if (elements.sendToNookCount) {
-            elements.sendToNookCount.textContent = `${checked} of ${total} selected`;
+            elements.sendToNookCount.textContent = `${sel.length} of ${items.length} selected`;
+        }
+        if (elements.sendToNookSelectAll) {
+            elements.sendToNookSelectAll.textContent = allOn ? 'Select none' : 'Select all';
+        }
+        const sendBtn = elements.confirmSendToNookBtn;
+        if (sendBtn) {
+            const label = sendBtn.querySelector('.rb-send-label');
+            if (label) label.textContent = `Send ${sel.length} ${sel.length === 1 ? 'item' : 'items'}`;
+            sendBtn.classList.toggle('disabled', sel.length === 0);
         }
     }
 
-    elements.sendToNookBtn?.addEventListener('click', () => {
+    function openSendToNook() {
         const recipe = getRecipe(currentRecipeId);
         if (!recipe) return;
         if (!nookUrl || !nookToken) {
@@ -3543,61 +3886,64 @@ function setupEventListeners() {
         const items = (recipe.ingredients || []).map(ing =>
             scaleIngredient(ing, currentMultiplier)
         );
-        elements.sendToNookList.innerHTML = items
-            .map((text, i) => `
-                <li>
-                    <label class="send-to-nook-item">
-                        <input type="checkbox" data-index="${i}" checked>
-                        <span>${escapeHtml(text)}</span>
-                    </label>
-                </li>
-            `)
-            .join('');
-        elements.sendToNookStatus.textContent = '';
-        elements.confirmSendToNookBtn.disabled = false;
-        elements.confirmSendToNookBtn.textContent = 'Send →';
-        updateSendToNookSelectAllState();
-        openModal(elements.sendToNookModal);
+        const sourceEl = document.getElementById('sendToNookSource');
+        if (sourceEl) sourceEl.textContent = recipe.title;
+        elements.sendToNookList.innerHTML = items.map((text, i) => `
+            <li class="rb-nook-item on" data-index="${i}">
+                <span class="rb-nook-check">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                         stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                        <path d="M5 12.5L10 17l9-10"></path>
+                    </svg>
+                </span>
+                <span class="rb-nook-text">${escapeHtml(text)}</span>
+            </li>
+        `).join('');
+        if (elements.sendToNookStatus) elements.sendToNookStatus.textContent = '';
+        elements.sendToNookModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        refreshNookControl();
+    }
+
+    function closeSendToNook() {
+        elements.sendToNookModal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    elements.sendToNookBtn?.addEventListener('click', openSendToNook);
+    elements.closeSendToNookBtn?.addEventListener('click', closeSendToNook);
+
+    // Tap a row → toggle .on
+    elements.sendToNookList?.addEventListener('click', (e) => {
+        const li = e.target.closest('.rb-nook-item');
+        if (!li) return;
+        li.classList.toggle('on');
+        refreshNookControl();
     });
 
-    elements.closeSendToNookBtn?.addEventListener('click', () => closeModal(elements.sendToNookModal));
-    elements.cancelSendToNookBtn?.addEventListener('click', () => closeModal(elements.sendToNookModal));
-    elements.sendToNookBackdrop?.addEventListener('click', () => closeModal(elements.sendToNookModal));
-
-    // Master select-all switch — flips every item, reflects indeterminate state
-    elements.sendToNookSelectAll?.addEventListener('change', (e) => {
-        const checked = e.target.checked;
-        elements.sendToNookList
-            .querySelectorAll('input[type="checkbox"]')
-            .forEach(b => { b.checked = checked; });
-        updateSendToNookSelectAllState();
-    });
-
-    // Individual checkbox changes → keep the master in sync
-    elements.sendToNookList?.addEventListener('change', (e) => {
-        if (e.target && e.target.matches('input[type="checkbox"]')) {
-            updateSendToNookSelectAllState();
-        }
+    // Select all / none toggle
+    elements.sendToNookSelectAll?.addEventListener('click', () => {
+        const items = nookItems();
+        const allOn = items.length > 0 && items.every(li => li.classList.contains('on'));
+        items.forEach(li => li.classList.toggle('on', !allOn));
+        refreshNookControl();
     });
 
     // Confirm send
     elements.confirmSendToNookBtn?.addEventListener('click', async () => {
-        const boxes = elements.sendToNookList.querySelectorAll('input[type="checkbox"]:checked');
-        const selected = Array.from(boxes).map(b => {
-            const li = b.closest('label')?.querySelector('span');
-            return li ? li.textContent : '';
-        }).filter(Boolean);
+        const selected = nookSelected().map(li =>
+            li.querySelector('.rb-nook-text')?.textContent || ''
+        ).filter(Boolean);
+        if (selected.length === 0) return;
 
-        if (selected.length === 0) {
-            elements.sendToNookStatus.style.color = 'var(--danger)';
-            elements.sendToNookStatus.textContent = 'Nothing selected.';
-            return;
+        const btn = elements.confirmSendToNookBtn;
+        const label = btn.querySelector('.rb-send-label');
+        btn.classList.add('disabled');
+        if (label) label.textContent = 'Sending…';
+        if (elements.sendToNookStatus) {
+            elements.sendToNookStatus.style.color = 'var(--text-muted)';
+            elements.sendToNookStatus.textContent = '';
         }
-
-        elements.confirmSendToNookBtn.disabled = true;
-        elements.confirmSendToNookBtn.textContent = 'Sending…';
-        elements.sendToNookStatus.style.color = 'var(--text-muted)';
-        elements.sendToNookStatus.textContent = '';
 
         try {
             const res = await fetch(`${nookUrl}/api/shopping`, {
@@ -3609,23 +3955,26 @@ function setupEventListeners() {
                 body: JSON.stringify({ items: selected }),
             });
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                throw new Error(data.error || `HTTP ${res.status}`);
-            }
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             const added = data.added ?? 0;
             const skipped = data.skipped ?? 0;
             const parts = [];
             if (added > 0) parts.push(`Added ${added}`);
             if (skipped > 0) parts.push(`${skipped} already there`);
             showToast(parts.join(' · ') || 'Sent to Nook.');
-            elements.sendToNookStatus.style.color = 'var(--success)';
-            elements.sendToNookStatus.textContent = data.message || 'Sent.';
-            setTimeout(() => closeModal(elements.sendToNookModal), 900);
+            if (label) label.textContent = '✓ Sent to Nook';
+            if (elements.sendToNookStatus) {
+                elements.sendToNookStatus.style.color = 'var(--success)';
+                elements.sendToNookStatus.textContent = data.message || 'Sent.';
+            }
+            setTimeout(closeSendToNook, 1100);
         } catch (err) {
-            elements.confirmSendToNookBtn.disabled = false;
-            elements.confirmSendToNookBtn.textContent = 'Send →';
-            elements.sendToNookStatus.style.color = 'var(--danger)';
-            elements.sendToNookStatus.textContent = err.message;
+            btn.classList.remove('disabled');
+            refreshNookControl();
+            if (elements.sendToNookStatus) {
+                elements.sendToNookStatus.style.color = 'var(--danger)';
+                elements.sendToNookStatus.textContent = err.message;
+            }
             showToast('Send failed: ' + err.message, 'error');
         }
     });
@@ -3747,15 +4096,38 @@ function setupEventListeners() {
     const homeMenuBtn = document.getElementById('homeMenuBtn');
     const homeAvatarBtn = document.getElementById('homeAvatarBtn');
     const rbNewRecipeBtn = document.getElementById('rbNewRecipeBtn');
-    homeMenuBtn?.addEventListener('click', () => {
-        elements.sidebar?.classList.add('open');
-    });
-    homeAvatarBtn?.addEventListener('click', () => {
-        elements.sidebar?.classList.add('open');
-    });
+    homeMenuBtn?.addEventListener('click', openDrawer);
+    homeAvatarBtn?.addEventListener('click', openDrawer);
     rbNewRecipeBtn?.addEventListener('click', () => {
-        // Trigger the same flow as the existing add button
         elements.addRecipeBtn?.click();
+    });
+
+    // Editorial drawer wiring
+    document.getElementById('rbDrawerClose')?.addEventListener('click', closeDrawer);
+    document.getElementById('rbDrawerScrim')?.addEventListener('click', closeDrawer);
+    document.getElementById('rbDrawerAdd')?.addEventListener('click', () => {
+        closeDrawer(); setTimeout(() => elements.addRecipeBtn?.click(), 180);
+    });
+    document.getElementById('rbDrawerAll')?.addEventListener('click', () => {
+        currentFolderId = 'all'; renderFoldersList(); renderRecipeGrid(); showHomeView(); closeDrawer();
+    });
+    document.getElementById('rbDrawerFavs')?.addEventListener('click', () => {
+        currentFolderId = 'favorites'; renderFoldersList(); renderRecipeGrid(); showHomeView(); closeDrawer();
+    });
+    document.getElementById('rbDrawerSettings')?.addEventListener('click', () => {
+        closeDrawer(); setTimeout(() => elements.settingsBtn?.click(), 180);
+    });
+    document.getElementById('rbDrawerBackup')?.addEventListener('click', () => {
+        closeDrawer(); setTimeout(() => elements.syncBtn?.click(), 180);
+    });
+    document.getElementById('rbDrawerTheme')?.addEventListener('click', () => {
+        elements.toggleTheme?.click();
+        const tn = document.getElementById('rbDrawerThemeName');
+        const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'editorial';
+        if (tn) tn.textContent = cur;
+    });
+    document.getElementById('rbDrawerProfile')?.addEventListener('click', () => {
+        closeDrawer(); setTimeout(() => elements.profileBtn?.click(), 180);
     });
 
     // Topbar wordmark fades in only once the big masthead has scrolled off

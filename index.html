@@ -22,7 +22,7 @@
     <script>
         // Force reload when a new version is deployed, even if HTML is cached
         (function() {
-            var VERSION = '20260322s';
+            var VERSION = '20260530a';
             if (localStorage.getItem('rbVersion') !== VERSION) {
                 localStorage.setItem('rbVersion', VERSION);
                 if (!location.search.includes(VERSION)) {
@@ -31,7 +31,7 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260322s">
+    <link rel="stylesheet" href="style.css?v=20260530a">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
@@ -61,7 +61,126 @@
     </div>
 
     <div class="app" id="app" style="display: none;">
-        <!-- Sidebar -->
+        <!-- Editorial side menu drawer (primary nav) -->
+        <div class="rb-drawer-root" id="rbDrawerRoot">
+            <div class="rb-drawer-scrim" id="rbDrawerScrim"></div>
+            <aside class="rb-drawer" id="rbDrawer">
+                <div class="rb-drawer-top">
+                    <div class="rb-drawer-brand">
+                        <span class="rb-wordmark">Recipe Book</span>
+                        <span class="rb-word-dot"></span>
+                    </div>
+                    <button class="rb-drawer-close rb-press" id="rbDrawerClose" aria-label="Close">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                            <path d="M18 6L6 18M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="rb-drawer-scroll">
+                    <button class="rb-profile rb-press" id="rbDrawerProfile">
+                        <span class="rb-profile-av" id="rbDrawerProfileAv">N</span>
+                        <span class="rb-profile-meta">
+                            <span class="rb-profile-name" id="rbDrawerProfileName">Sign in</span>
+                            <span class="rb-profile-mail" id="rbDrawerProfileMail">to sync across devices</span>
+                        </span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="opacity:.5">
+                            <path d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </button>
+
+                    <div class="rb-menu-group">
+                        <button class="rb-menu-row rb-press accent" id="rbDrawerAdd">
+                            <span class="rb-menu-ic">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                     stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                    <path d="M12 5v14M5 12h14"></path>
+                                </svg>
+                            </span>
+                            <span class="rb-menu-label">Add a recipe
+                                <span class="rb-menu-sub">Scan, link, paste or type</span>
+                            </span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="opacity:.5">
+                                <path d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                        <button class="rb-menu-row rb-press" id="rbDrawerAll">
+                            <span class="rb-menu-ic">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                     stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                    <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM6 19h13"></path>
+                                </svg>
+                            </span>
+                            <span class="rb-menu-label">All recipes</span>
+                            <span class="rb-menu-count" id="rbDrawerAllCount">0</span>
+                        </button>
+                        <button class="rb-menu-row rb-press" id="rbDrawerFavs">
+                            <span class="rb-menu-ic">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                     stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                    <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.6l5.8-.8z"></path>
+                                </svg>
+                            </span>
+                            <span class="rb-menu-label">Favorites</span>
+                            <span class="rb-menu-count" id="rbDrawerFavCount">0</span>
+                        </button>
+                    </div>
+
+                    <div class="rb-menu-head">COLLECTIONS</div>
+                    <div class="rb-menu-group" id="rbDrawerFolders"></div>
+
+                    <div class="rb-menu-head">APP</div>
+                    <div class="rb-menu-group">
+                        <button class="rb-menu-row rb-press" id="rbDrawerSettings">
+                            <span class="rb-menu-ic">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                     stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.36 0 .77.1 1.06.4"></path>
+                                </svg>
+                            </span>
+                            <span class="rb-menu-label">Settings
+                                <span class="rb-menu-sub">API key · Nook connection</span>
+                            </span>
+                        </button>
+                        <button class="rb-menu-row rb-press" id="rbDrawerBackup">
+                            <span class="rb-menu-ic">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                     stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path>
+                                </svg>
+                            </span>
+                            <span class="rb-menu-label">Backup
+                                <span class="rb-menu-sub">Export or import recipes</span>
+                            </span>
+                        </button>
+                        <button class="rb-menu-row rb-press" id="rbDrawerTheme">
+                            <span class="rb-menu-ic">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                     stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                    <circle cx="12" cy="12" r="4"></circle>
+                                    <path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5.6 5.6 4.2 4.2M19.8 19.8l-1.4-1.4M18.4 5.6l1.4-1.4M4.2 19.8l1.4-1.4"></path>
+                                </svg>
+                            </span>
+                            <span class="rb-menu-label">Theme</span>
+                            <span class="rb-menu-count" id="rbDrawerThemeName" style="text-transform:capitalize">editorial</span>
+                        </button>
+                    </div>
+
+                    <div style="height:16px"></div>
+                </div>
+
+                <div class="rb-drawer-foot">
+                    <span class="rb-sync-dot"></span>
+                    <span id="rbDrawerSyncLabel">Synced · just now</span>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Sidebar (desktop only) -->
         <aside class="sidebar" id="sidebar">
             <!-- Profile section -->
             <div class="profile-section" id="profileSection">
@@ -234,9 +353,15 @@
                     <span class="rb-new-sub">Scan · paste a link · type it in</span>
                 </button>
 
-                <div class="recipe-grid" id="recipeGrid">
-                    <!-- Recipe cards will be inserted here -->
-                </div>
+                <!-- Editorial home sections — populated by renderHomeView() in app.js -->
+                <section class="rb-sec rb-anim" style="--d: 210ms" id="rbHeroSec" hidden></section>
+                <section class="rb-sec rb-anim" style="--d: 270ms" id="rbFavSec" hidden></section>
+                <section class="rb-sec rb-anim" style="--d: 330ms" id="rbFoldersSec" hidden></section>
+                <section class="rb-sec rb-anim" style="--d: 390ms" id="rbRecentSec" hidden></section>
+                <div class="rb-foot" id="rbHomeFoot" hidden></div>
+
+                <!-- Legacy grid kept hidden so any lingering references don't crash -->
+                <div class="recipe-grid" id="recipeGrid" hidden></div>
             </div>
 
             <div class="empty-state" id="emptyState" style="display: none;">
@@ -248,139 +373,170 @@
                 <button class="btn btn-primary" id="emptyAddBtn">Add Recipe</button>
             </div>
 
-            <article class="recipe-detail" id="recipeDetail" style="display: none;">
-                <button class="back-to-grid" id="backToGridBtn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M19 12H5M12 19l-7-7 7-7"></path>
-                    </svg>
-                    Back to Recipes
-                </button>
-                <div id="recipeImageWrap" class="recipe-image-wrap" style="display:none">
-                    <img id="recipeImage" class="recipe-image" src="" alt="" onerror="console.log('[Image] Load failed (onerror) for:', this.src); this.parentElement.style.display='none'">
-                </div>
-                <div class="recipe-header">
-                    <div class="recipe-title-row">
-                        <h2 id="recipeTitle"></h2>
-                        <div class="recipe-actions">
-                            <div class="folder-picker-wrap" id="folderPickerWrap">
-                                <button class="btn-icon" id="folderPickerBtn" title="Move to folder">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                                    </svg>
-                                </button>
-                                <div class="folder-picker-dropdown" id="folderPickerDropdown" style="display:none"></div>
-                            </div>
-                            <button class="btn-icon btn-favorite" id="favoriteBtn" title="Add to favorites">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                                </svg>
-                            </button>
-                            <button class="btn-icon" id="shareRecipeBtn" title="Share as PDF">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-                                    <polyline points="16 6 12 2 8 6"></polyline>
-                                    <line x1="12" y1="2" x2="12" y2="15"></line>
-                                </svg>
-                            </button>
-                            <button class="btn-icon" id="rescanRecipeBtn" title="Re-extract recipe with AI">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="1 4 1 10 7 10"></polyline>
-                                    <path d="M3.51 15a9 9 0 1 0 .49-3.75"></path>
-                                </svg>
-                            </button>
-                            <button class="btn-icon" id="editRecipeBtn" title="Edit recipe">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                </svg>
-                            </button>
-                            <button class="btn-icon btn-danger" id="deleteRecipeBtn" title="Delete recipe">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                            </button>
+            <article class="rb-detail" id="recipeDetail" style="display: none;">
+                <div class="rb-detail-scroll">
+                    <!-- Hero header — generated tile or photo + floating back -->
+                    <div class="rb-d-hero" id="recipeImageWrap">
+                        <img id="recipeImage" class="rb-d-hero-bg rb-d-hero-img" src="" alt=""
+                             onerror="this.style.display='none'">
+                        <div class="rb-d-hero-tile" id="recipeHeroTile"></div>
+                        <button class="rb-back rb-press" id="backToGridBtn" aria-label="Back">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                                <path d="M19 12H5M12 19l-7-7 7-7"></path>
+                            </svg>
+                        </button>
+                        <div class="rb-d-hero-text">
+                            <span class="rb-d-folder" id="recipeFolderKicker" hidden></span>
+                            <h1 class="rb-d-title" id="recipeTitle"></h1>
+                            <a href="#" id="recipeSource" class="rb-d-source" target="_blank" rel="noopener"></a>
                         </div>
                     </div>
-                    <a href="#" id="recipeSource" class="recipe-source" target="_blank" rel="noopener"></a>
-                    <div class="recipe-meta" id="recipeMeta">
-                        <div class="recipe-meta-item" id="servingsDisplay" style="display: none;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="9" cy="7" r="4"></circle>
-                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+
+                    <!-- Action toolbar -->
+                    <div class="rb-actions">
+                        <div class="rb-folder-wrap" id="folderPickerWrap">
+                            <button class="rb-act-btn rb-press" id="folderPickerBtn" title="Move to folder" aria-label="Move to folder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                     stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                            </button>
+                            <div class="rb-folder-menu" id="folderPickerDropdown" hidden></div>
+                        </div>
+                        <button class="rb-act-btn rb-press" id="favoriteBtn" title="Favorite" aria-label="Favorite">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.6l5.8-.8z"></path>
+                            </svg>
+                        </button>
+                        <button class="rb-act-btn rb-press" id="rescanRecipeBtn" title="Re-scan with AI" aria-label="Re-scan with AI">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                <path d="M1 4v6h6M3.5 15a9 9 0 1 0 .5-3.8L1 10"></path>
+                            </svg>
+                        </button>
+                        <button class="rb-act-btn rb-press" id="shareRecipeBtn" title="Share as PDF" aria-label="Share as PDF">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"></path>
+                            </svg>
+                        </button>
+                        <button class="rb-act-btn rb-press" id="editRecipeBtn" title="Edit recipe" aria-label="Edit recipe">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"></path>
+                            </svg>
+                        </button>
+                        <button class="rb-act-btn rb-press" id="deleteRecipeBtn" title="Delete recipe" aria-label="Delete recipe">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+                                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Meta chips -->
+                    <div class="rb-d-chips" id="recipeMeta">
+                        <span class="rb-chip" id="servingsDisplay" hidden>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                <path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 4.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4M19.5 20v-1.5a3.5 3.5 0 0 0-2.6-3.4"></path>
                             </svg>
                             <span id="servingsText"></span>
-                        </div>
+                        </span>
+                        <span class="rb-chip" id="ingCountChip" hidden>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM6 19h13"></path>
+                            </svg>
+                            <span id="ingCountText"></span>
+                        </span>
+                        <span class="rb-chip" id="folderChip" hidden>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            </svg>
+                            <span id="folderChipText"></span>
+                        </span>
                     </div>
-                </div>
 
-                <div class="recipe-content">
-                    <button class="cooking-mode-btn" id="cookingModeBtn" title="Keep screen on while cooking">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"></path>
-                            <path d="M12 6v6l4 2"></path>
+                    <button class="rb-cook-btn rb-press" id="cookingModeBtn" title="Keep screen on while cooking">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+                            <path d="M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM12 7.5V12l3 2"></path>
                         </svg>
-                        Cooking Mode
+                        <span class="rb-cook-label">Start cooking mode</span>
                     </button>
-                    <section class="ingredients-section">
-                        <div class="multiplier-row">
-                            <button class="multiplier-btn" data-mult="0.5">½×</button>
-                            <button class="multiplier-btn active" data-mult="1">1×</button>
-                            <button class="multiplier-btn" data-mult="2">2×</button>
-                            <button class="multiplier-btn" data-mult="3">3×</button>
-                        </div>
-                        <div class="section-header">
+
+                    <!-- Ingredients -->
+                    <section class="rb-d-sec">
+                        <div class="rb-d-sec-head">
                             <h3>Ingredients</h3>
-                            <div class="section-header-actions">
-                                <button class="btn-copy btn-reset-checklist" id="resetChecklistBtn" title="Uncheck all ingredients" style="display:none;">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                                        <polyline points="1 4 1 10 7 10"></polyline>
-                                        <path d="M3.51 15a9 9 0 1 0 .49-3.75"></path>
+                            <div class="rb-ing-actions">
+                                <button class="rb-mini-btn rb-press" id="copyIngredientsBtn" title="Copy ingredients">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                         stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                        <path d="M9 9h13v13H9zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                     </svg>
-                                    <span class="copy-text">Reset</span>
+                                    <span class="copy-text" hidden>Copy</span>
                                 </button>
-                                <button class="btn-copy" id="copyIngredientsBtn" title="Copy ingredients to clipboard">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                    </svg>
-                                    <span class="copy-text">Copy</span>
-                                </button>
-                                <button class="btn-copy btn-send-nook" id="sendToNookBtn" title="Send to Nook shopping list">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path>
-                                        <path d="M3 6h18"></path>
-                                        <path d="M16 10a4 4 0 0 1-8 0"></path>
+                                <button class="rb-nook-btn rb-press" id="sendToNookBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                         stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                        <path d="M1 2h3.5l2.4 12.2a1.8 1.8 0 0 0 1.8 1.5h9.3a1.8 1.8 0 0 0 1.8-1.4L22.5 7H6"></path>
+                                        <circle cx="9" cy="20.6" r="1"></circle>
+                                        <circle cx="19" cy="20.6" r="1"></circle>
                                     </svg>
                                     <span class="copy-text">Send to Nook</span>
                                 </button>
                             </div>
                         </div>
-                        <ul id="ingredientsList"></ul>
+                        <div class="rb-mult-row">
+                            <div class="rb-mult">
+                                <button class="rb-mult-btn multiplier-btn" data-mult="0.5">½×</button>
+                                <button class="rb-mult-btn multiplier-btn active" data-mult="1">1×</button>
+                                <button class="rb-mult-btn multiplier-btn" data-mult="2">2×</button>
+                                <button class="rb-mult-btn multiplier-btn" data-mult="3">3×</button>
+                            </div>
+                            <button class="rb-reset" id="resetChecklistBtn" hidden>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                     stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                                    <path d="M1 4v6h6M3.5 15a9 9 0 1 0 .5-3.8L1 10"></path>
+                                </svg>
+                                Reset
+                            </button>
+                        </div>
+                        <ul class="rb-ings" id="ingredientsList"></ul>
                     </section>
 
-                    <section class="instructions-section">
-                        <h3>Instructions</h3>
-                        <ol id="instructionsList"></ol>
+                    <!-- Method -->
+                    <section class="rb-d-sec">
+                        <div class="rb-d-sec-head"><h3>Method</h3></div>
+                        <ol class="rb-steps" id="instructionsList"></ol>
                     </section>
 
-                    <section class="notes-section" id="notesSection" style="display: none;">
-                        <h3>Notes</h3>
-                        <p id="recipeNotes"></p>
+                    <!-- Notes -->
+                    <section class="rb-d-sec" id="notesSection" hidden>
+                        <div class="rb-d-sec-head"><h3>Notes</h3></div>
+                        <p class="rb-notes" id="recipeNotes"></p>
                     </section>
+
+                    <div class="rb-foot rb-detail-foot">Swipe from the left edge to go back</div>
                 </div>
             </article>
         </main>
     </div>
 
     <!-- Add Recipe Modal -->
-    <div class="modal" id="addModal">
+    <div class="modal rb-modal" id="addModal">
         <div class="modal-backdrop" id="modalBackdrop"></div>
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle">Add Recipe</h2>
+            <div class="modal-header rb-modal-head">
+                <div class="rb-modal-titles">
+                    <div class="rb-screen-kicker">NEW RECIPE</div>
+                    <h2 class="rb-screen-title" id="modalTitle">Add a recipe<span class="rb-title-dot">.</span></h2>
+                </div>
                 <button class="btn-icon" id="closeModalBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M18 6L6 18M6 6l12 12"></path>
@@ -652,47 +808,60 @@
         </div>
     </div>
 
-    <!-- Send to Nook Modal -->
-    <div class="modal modal-fullscreen" id="sendToNookModal">
-        <div class="modal-backdrop" id="sendToNookBackdrop"></div>
-        <div class="modal-content modal-content-fullscreen">
-            <div class="modal-header">
-                <div>
-                    <h2>Send to Nook</h2>
-                    <p class="help-text" style="margin:4px 0 0;">Pick what's going to <strong>Groceries</strong>.</p>
+    <!-- Send to Nook — full-screen editorial flow -->
+    <div class="rb-screen-overlay" id="sendToNookModal">
+        <div class="rb-detail">
+            <div class="rb-detail-scroll rb-screen-scroll">
+                <header class="rb-screen-head">
+                    <button class="rb-back rb-back-solid rb-press" id="closeSendToNookBtn" aria-label="Back">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                             stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="rb-screen-kicker">SHOPPING LIST</div>
+                    <h1 class="rb-screen-title">Send to Nook<span class="rb-title-dot">.</span></h1>
+                </header>
+
+                <div class="rb-nook-ctx">
+                    From <em id="sendToNookSource">this recipe</em> · items land in your <span class="rb-nook-dest">Groceries</span> list
                 </div>
-                <button class="btn-icon" id="closeSendToNookBtn" aria-label="Close">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 6L6 18M6 6l12 12"></path>
+
+                <div class="rb-nook-control">
+                    <span class="rb-nook-count" id="sendToNookCount">0 of 0 selected</span>
+                    <button class="rb-nook-all rb-press" id="sendToNookSelectAll" type="button">Select none</button>
+                </div>
+
+                <ul class="rb-nook-list" id="sendToNookList"></ul>
+                <div id="sendToNookStatus" class="rb-nook-status"></div>
+                <div style="height:120px"></div>
+            </div>
+
+            <div class="rb-send-bar">
+                <button class="rb-send-btn rb-press" id="confirmSendToNookBtn">
+                    <span class="rb-send-label">Send 0 items</span>
+                    <svg class="rb-send-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+                         stroke-linecap="round" stroke-linejoin="round" width="17" height="17">
+                        <path d="M9 5l7 7-7 7"></path>
                     </svg>
                 </button>
             </div>
-
-            <!-- Select-all switch -->
-            <label class="select-all-row" id="sendToNookSelectAllRow">
-                <input type="checkbox" id="sendToNookSelectAll">
-                <span class="select-all-label">Select all</span>
-                <span class="select-all-count" id="sendToNookCount"></span>
-            </label>
-
-            <div class="modal-body modal-body-scroll">
-                <ul id="sendToNookList" class="send-to-nook-list"></ul>
-                <div id="sendToNookStatus" style="margin-top:12px;text-align:center;font-size:13px;color:var(--text-muted);"></div>
-            </div>
-
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="cancelSendToNookBtn">Cancel</button>
-                <button class="btn btn-primary" id="confirmSendToNookBtn">Send →</button>
-            </div>
         </div>
+        <!-- legacy element kept hidden for any historic references -->
+        <button id="cancelSendToNookBtn" hidden></button>
+        <div id="sendToNookBackdrop" hidden></div>
+        <div id="sendToNookSelectAllRow" hidden></div>
     </div>
 
     <!-- Settings Modal -->
-    <div class="modal" id="settingsModal">
+    <div class="modal rb-modal" id="settingsModal">
         <div class="modal-backdrop" id="settingsModalBackdrop"></div>
         <div class="modal-content modal-small">
-            <div class="modal-header">
-                <h2>Settings</h2>
+            <div class="modal-header rb-modal-head">
+                <div class="rb-modal-titles">
+                    <div class="rb-screen-kicker">PREFERENCES</div>
+                    <h2 class="rb-screen-title">Settings<span class="rb-title-dot">.</span></h2>
+                </div>
                 <button class="btn-icon" id="closeSettingsModalBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M18 6L6 18M6 6l12 12"></path>
@@ -853,7 +1022,7 @@
 
     <!-- PDF.js for PDF text extraction -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="app.js?v=20260322s"></script>
+    <script src="app.js?v=20260530a"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
