@@ -5,6 +5,8 @@
 const STORAGE_KEY = 'recipeBook';
 const API_KEY_STORAGE = 'recipeBookApiKey';
 const FOLDERS_STORAGE = 'recipeBookFolders';
+const NOOK_URL_STORAGE = 'recipeBookNookUrl';
+const NOOK_TOKEN_STORAGE = 'recipeBookNookToken';
 
 // State
 let recipes = [];
@@ -13,6 +15,8 @@ let currentRecipeId = null;
 let currentFolderId = 'all';
 let currentUser = null;
 let claudeApiKey = null;
+let nookUrl = '';
+let nookToken = '';
 let firebaseReady = false;
 let unsubscribeFirebase = null;
 let unsubscribeFolders = null;
@@ -107,9 +111,21 @@ const elements = {
     settingsModalBackdrop: document.getElementById('settingsModalBackdrop'),
     closeSettingsModalBtn: document.getElementById('closeSettingsModalBtn'),
     apiKeyInput: document.getElementById('apiKeyInput'),
+    nookUrlInput: document.getElementById('nookUrlInput'),
+    nookTokenInput: document.getElementById('nookTokenInput'),
     saveSettingsBtn: document.getElementById('saveSettingsBtn'),
     testApiBtn: document.getElementById('testApiBtn'),
     apiStatus: document.getElementById('apiStatus'),
+
+    // Send to Nook
+    sendToNookBtn: document.getElementById('sendToNookBtn'),
+    sendToNookModal: document.getElementById('sendToNookModal'),
+    sendToNookBackdrop: document.getElementById('sendToNookBackdrop'),
+    closeSendToNookBtn: document.getElementById('closeSendToNookBtn'),
+    sendToNookList: document.getElementById('sendToNookList'),
+    sendToNookToggleAllBtn: document.getElementById('sendToNookToggleAllBtn'),
+    confirmSendToNookBtn: document.getElementById('confirmSendToNookBtn'),
+    sendToNookStatus: document.getElementById('sendToNookStatus'),
 
     // Toast
     toastContainer: document.getElementById('toastContainer'),
@@ -2907,6 +2923,9 @@ function setupEventListeners() {
             elements.apiKeyInput.value = '';
             elements.apiStatus.innerHTML = '<span style="color: var(--text-muted);">No API key set</span>';
         }
+        // Populate Nook fields
+        if (elements.nookUrlInput) elements.nookUrlInput.value = nookUrl || '';
+        if (elements.nookTokenInput) elements.nookTokenInput.value = nookToken || '';
         openModal(elements.settingsModal);
     });
 
@@ -2933,6 +2952,16 @@ function setupEventListeners() {
             elements.apiStatus.innerHTML = '<span style="color: var(--text-muted);">API key removed</span>';
             showToast('API key removed.');
         }
+
+        // Save Nook settings (local only — no need to sync the token)
+        const newNookUrl = (elements.nookUrlInput?.value || '').trim().replace(/\/+$/, '');
+        const newNookToken = (elements.nookTokenInput?.value || '').trim();
+        nookUrl = newNookUrl;
+        nookToken = newNookToken;
+        if (newNookUrl) localStorage.setItem(NOOK_URL_STORAGE, newNookUrl);
+        else localStorage.removeItem(NOOK_URL_STORAGE);
+        if (newNookToken) localStorage.setItem(NOOK_TOKEN_STORAGE, newNookToken);
+        else localStorage.removeItem(NOOK_TOKEN_STORAGE);
 
         setTimeout(() => closeModal(elements.settingsModal), 1000);
     });
@@ -3425,6 +3454,95 @@ function setupEventListeners() {
         }
     });
 
+    // ── Send to Nook ─────────────────────────────────────────────
+    elements.sendToNookBtn?.addEventListener('click', () => {
+        const recipe = getRecipe(currentRecipeId);
+        if (!recipe) return;
+        if (!nookUrl || !nookToken) {
+            showToast('Add your Nook URL and token in Settings first', 'error');
+            openModal(elements.settingsModal);
+            return;
+        }
+        // Render checkbox list, scaled by current multiplier
+        const items = (recipe.ingredients || []).map(ing =>
+            scaleIngredient(ing, currentMultiplier)
+        );
+        elements.sendToNookList.innerHTML = items
+            .map((text, i) => `
+                <li>
+                    <label class="send-to-nook-item">
+                        <input type="checkbox" data-index="${i}" checked>
+                        <span>${escapeHtml(text)}</span>
+                    </label>
+                </li>
+            `)
+            .join('');
+        elements.sendToNookStatus.textContent = '';
+        elements.confirmSendToNookBtn.disabled = false;
+        elements.confirmSendToNookBtn.textContent = 'Send →';
+        openModal(elements.sendToNookModal);
+    });
+
+    elements.closeSendToNookBtn?.addEventListener('click', () => closeModal(elements.sendToNookModal));
+    elements.sendToNookBackdrop?.addEventListener('click', () => closeModal(elements.sendToNookModal));
+
+    // Toggle-all checkboxes
+    elements.sendToNookToggleAllBtn?.addEventListener('click', () => {
+        const boxes = elements.sendToNookList.querySelectorAll('input[type="checkbox"]');
+        const allChecked = Array.from(boxes).every(b => b.checked);
+        boxes.forEach(b => { b.checked = !allChecked; });
+    });
+
+    // Confirm send
+    elements.confirmSendToNookBtn?.addEventListener('click', async () => {
+        const boxes = elements.sendToNookList.querySelectorAll('input[type="checkbox"]:checked');
+        const selected = Array.from(boxes).map(b => {
+            const li = b.closest('label')?.querySelector('span');
+            return li ? li.textContent : '';
+        }).filter(Boolean);
+
+        if (selected.length === 0) {
+            elements.sendToNookStatus.style.color = 'var(--danger)';
+            elements.sendToNookStatus.textContent = 'Nothing selected.';
+            return;
+        }
+
+        elements.confirmSendToNookBtn.disabled = true;
+        elements.confirmSendToNookBtn.textContent = 'Sending…';
+        elements.sendToNookStatus.style.color = 'var(--text-muted)';
+        elements.sendToNookStatus.textContent = '';
+
+        try {
+            const res = await fetch(`${nookUrl}/api/shopping`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${nookToken}`,
+                },
+                body: JSON.stringify({ items: selected }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.error || `HTTP ${res.status}`);
+            }
+            const added = data.added ?? 0;
+            const skipped = data.skipped ?? 0;
+            const parts = [];
+            if (added > 0) parts.push(`Added ${added}`);
+            if (skipped > 0) parts.push(`${skipped} already there`);
+            showToast(parts.join(' · ') || 'Sent to Nook.');
+            elements.sendToNookStatus.style.color = 'var(--success)';
+            elements.sendToNookStatus.textContent = data.message || 'Sent.';
+            setTimeout(() => closeModal(elements.sendToNookModal), 900);
+        } catch (err) {
+            elements.confirmSendToNookBtn.disabled = false;
+            elements.confirmSendToNookBtn.textContent = 'Send →';
+            elements.sendToNookStatus.style.color = 'var(--danger)';
+            elements.sendToNookStatus.textContent = err.message;
+            showToast('Send failed: ' + err.message, 'error');
+        }
+    });
+
     // Search (sidebar)
     elements.searchInput.addEventListener('input', (e) => {
         renderRecipeList(e.target.value);
@@ -3786,6 +3904,10 @@ function init() {
 
     // Load API key from local storage (will be overwritten by Firebase if logged in)
     claudeApiKey = localStorage.getItem(API_KEY_STORAGE);
+
+    // Load Nook settings from local storage
+    nookUrl = localStorage.getItem(NOOK_URL_STORAGE) || '';
+    nookToken = localStorage.getItem(NOOK_TOKEN_STORAGE) || '';
 
     // Setup event listeners
     setupEventListeners();

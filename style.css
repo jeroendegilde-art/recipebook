@@ -1998,3 +1998,51 @@ button.recipe-card:active {
         page-break-inside: avoid;
     }
 }
+
+/* ── Send to Nook ─────────────────────────────────────────── */
+.btn-send-nook {
+    color: #E26963;
+    border-color: rgba(226, 105, 99, 0.35);
+}
+.btn-send-nook:hover {
+    background: rgba(226, 105, 99, 0.08);
+}
+
+.send-to-nook-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 50vh;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+.send-to-nook-list li {
+    border-bottom: 1px solid var(--border-color);
+}
+.send-to-nook-list li:last-child {
+    border-bottom: none;
+}
+.send-to-nook-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1.4;
+}
+.send-to-nook-item input[type="checkbox"] {
+    margin-top: 2px;
+    width: 16px;
+    height: 16px;
+    accent-color: #E26963;
+    cursor: pointer;
+}
+.send-to-nook-item span {
+    flex: 1;
+}
+.send-to-nook-item:has(input:not(:checked)) span {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}

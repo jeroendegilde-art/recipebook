@@ -315,6 +315,12 @@
                                     </svg>
                                     <span class="copy-text">Copy</span>
                                 </button>
+                                <button class="btn-copy btn-send-nook" id="sendToNookBtn" title="Send to Nook shopping list">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 6h18M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                    <span class="copy-text">Send to Nook</span>
+                                </button>
                             </div>
                         </div>
                         <ul id="ingredientsList"></ul>
@@ -611,6 +617,30 @@
         </div>
     </div>
 
+    <!-- Send to Nook Modal -->
+    <div class="modal" id="sendToNookModal">
+        <div class="modal-backdrop" id="sendToNookBackdrop"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Send to Nook</h2>
+                <button class="btn-icon" id="closeSendToNookBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="help-text" style="margin-bottom:12px;">Uncheck anything you already have. Items go to <strong>Groceries</strong>.</p>
+                <ul id="sendToNookList" class="send-to-nook-list"></ul>
+                <div class="settings-buttons" style="margin-top:16px;">
+                    <button class="btn btn-secondary" id="sendToNookToggleAllBtn">Toggle all</button>
+                    <button class="btn btn-primary" id="confirmSendToNookBtn">Send →</button>
+                </div>
+                <div id="sendToNookStatus" style="margin-top:12px;text-align:center;font-size:13px;color:var(--text-muted);"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Settings Modal -->
     <div class="modal" id="settingsModal">
         <div class="modal-backdrop" id="settingsModalBackdrop"></div>
@@ -633,6 +663,20 @@
                         <strong>Important:</strong> You must enable "Allow browser access" when creating the key.
                     </p>
                 </div>
+
+                <hr style="border:none;border-top:1px solid var(--border);margin:20px 0;">
+
+                <div class="form-group">
+                    <label for="nookUrlInput">Nook URL</label>
+                    <input type="url" id="nookUrlInput" placeholder="https://couple-app-taupe.vercel.app">
+                    <p class="help-text">Base URL of your Nook app — no trailing slash.</p>
+                </div>
+                <div class="form-group">
+                    <label for="nookTokenInput">Nook Token</label>
+                    <input type="password" id="nookTokenInput" placeholder="Long random string">
+                    <p class="help-text">The <code>NOOK_SHOPPING_TOKEN</code> you set on Vercel.</p>
+                </div>
+
                 <div class="settings-buttons">
                     <button class="btn btn-primary" id="saveSettingsBtn">Save</button>
                     <button class="btn btn-secondary" id="testApiBtn">Test Connection</button>
