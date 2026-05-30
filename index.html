@@ -22,7 +22,7 @@
     <script>
         // Force reload when a new version is deployed, even if HTML is cached
         (function() {
-            var VERSION = '20260530g';
+            var VERSION = '20260530h';
             if (localStorage.getItem('rbVersion') !== VERSION) {
                 localStorage.setItem('rbVersion', VERSION);
                 if (!location.search.includes(VERSION)) {
@@ -31,7 +31,7 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260530g">
+    <link rel="stylesheet" href="style.css?v=20260530h">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
@@ -79,18 +79,6 @@
                 </div>
 
                 <div class="rb-drawer-scroll">
-                    <button class="rb-profile rb-press" id="rbDrawerProfile">
-                        <span class="rb-profile-av" id="rbDrawerProfileAv">N</span>
-                        <span class="rb-profile-meta">
-                            <span class="rb-profile-name" id="rbDrawerProfileName">Sign in</span>
-                            <span class="rb-profile-mail" id="rbDrawerProfileMail">to sync across devices</span>
-                        </span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                             stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="opacity:.5">
-                            <path d="M9 5l7 7-7 7"></path>
-                        </svg>
-                    </button>
-
                     <div class="rb-menu-group">
                         <button class="rb-menu-row rb-press accent" id="rbDrawerAdd">
                             <span class="rb-menu-ic">
@@ -896,6 +884,20 @@
             </div>
 
             <div class="modal-body">
+                <!-- Account section: who you're signed in as + sign out -->
+                <div class="rb-settings-account" id="settingsAccount" hidden>
+                    <div class="rb-settings-account-row">
+                        <div class="rb-settings-account-av" id="settingsAccountAv">
+                            <span id="settingsAccountInitial">N</span>
+                        </div>
+                        <div class="rb-settings-account-meta">
+                            <div class="rb-settings-account-name" id="settingsAccountName">—</div>
+                            <div class="rb-settings-account-mail" id="settingsAccountMail">—</div>
+                        </div>
+                        <button class="btn btn-secondary btn-small" id="settingsSignOutBtn">Sign out</button>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="apiKeyInput">Claude API Key</label>
                     <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-...">
@@ -1048,7 +1050,7 @@
 
     <!-- PDF.js for PDF text extraction -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="app.js?v=20260530g"></script>
+    <script src="app.js?v=20260530h"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

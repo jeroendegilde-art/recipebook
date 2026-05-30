@@ -2384,17 +2384,20 @@ input:focus, textarea:focus, select:focus {
 }
 .rb-folder.reorder-on { cursor: grab; user-select: none; }
 .rb-folder.reorder-on:active { cursor: grabbing; }
-/* Reorder mode: collapse to a single column so drag-to-reorder
-   resolves drop positions correctly (drops in a 2-col grid get ambiguous). */
+/* Reorder mode: collapse to a single column so drag-to-reorder resolves
+   drop positions correctly (drops in a 2-col grid are ambiguous). */
 .rb-folders[data-reorder="on"] {
     grid-template-columns: 1fr;
+    position: relative;
 }
 .rb-folders[data-reorder="on"] .rb-folder {
-    animation: rbWiggle 0.45s ease infinite alternate;
+    will-change: transform;
+    touch-action: none;
 }
-@keyframes rbWiggle {
-    from { transform: rotate(-0.3deg); }
-    to   { transform: rotate(0.3deg); }
+.rb-folder.rb-dragging {
+    box-shadow: 0 12px 36px rgba(0,0,0,0.55);
+    background: var(--bg-tertiary);
+    border-color: var(--accent);
 }
 .rb-sec-link.rb-reorder-toggle {
     border: 1px solid var(--border-color); background: none;
@@ -3544,6 +3547,40 @@ input:focus, textarea:focus, select:focus {
 }
 .rb-send-btn.disabled,
 .rb-send-btn[disabled] { opacity: 0.4; pointer-events: none; }
+
+/* ---------- Settings account block ---------- */
+.rb-settings-account {
+    display: block; padding: 14px;
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    margin-bottom: 20px;
+}
+.rb-settings-account-row {
+    display: flex; align-items: center; gap: 12px;
+}
+.rb-settings-account-av {
+    width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%;
+    background: var(--accent); color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-style: italic;
+    font-size: 17px; font-weight: 600;
+    overflow: hidden;
+}
+.rb-settings-account-av img { width: 100%; height: 100%; object-fit: cover; }
+.rb-settings-account-meta {
+    flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.rb-settings-account-name {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 15px; font-weight: 500; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rb-settings-account-mail {
+    font-size: 12.5px; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.btn-small { padding: 6px 10px; font-size: 12px; }
 
 /* ---------- ADD RECIPE / SETTINGS modal re-skin ---------- */
 .rb-modal .modal-content { background: var(--bg-primary); }

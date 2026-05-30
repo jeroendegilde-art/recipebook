@@ -2769,28 +2769,140 @@ function rbWireFolderReorder() {
     }
 
     if (grid.dataset.reorder !== 'on') return;
-    if (grid._sortableInstalled) return;
-    grid._sortableInstalled = true;
-    makeSortable(
-        grid,
-        () => folders.slice(),
-        (next) => {
-            folders.length = 0;
-            next.forEach(f => folders.push(f));
+    if (grid._reorderInstalled) return;
+    grid._reorderInstalled = true;
+    rbInstallSmoothReorder(grid);
+}
+
+/* Smooth pointer-based reorder: the dragged tile follows the finger and the other
+   tiles slide into their new slots in real time. Commits the new order to `folders`
+   on release, then re-renders. */
+function rbInstallSmoothReorder(grid) {
+    let dragEl = null;
+    let dragIdx = -1;        // current intended index of the dragged item
+    let startIdx = -1;
+    let pointerId = 0;
+    let startY = 0;
+    let dragOffsetY = 0;     // distance from top of dragged tile to the touch point
+    let tiles = [];          // [{el, top, height}] snapshot of starting layout
+
+    const onDown = (e) => {
+        if (dragEl) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        const el = e.target.closest('.rb-folder');
+        if (!el || el.parentElement !== grid) return;
+        // Only react in reorder mode
+        if (grid.dataset.reorder !== 'on') return;
+
+        dragEl = el;
+        pointerId = e.pointerId;
+        startIdx = Array.from(grid.children).indexOf(el);
+        dragIdx = startIdx;
+
+        // Snapshot positions BEFORE we lift the dragged element
+        tiles = Array.from(grid.children).map(c => {
+            const r = c.getBoundingClientRect();
+            return { el: c, top: r.top + window.scrollY, height: r.height };
+        });
+        startY = e.clientY + window.scrollY;
+        const draggedRect = dragEl.getBoundingClientRect();
+        dragOffsetY = (e.clientY - draggedRect.top);
+
+        // Lift the dragged tile
+        dragEl.classList.add('rb-dragging');
+        dragEl.style.zIndex = '20';
+        dragEl.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease';
+        dragEl.style.transform = `translate3d(0, 0, 0) scale(1.03)`;
+        // Other tiles get a smooth transition for the slide-into-slot animation
+        tiles.forEach(t => {
+            if (t.el !== dragEl) {
+                t.el.style.transition = 'transform 0.22s cubic-bezier(0.32,0.72,0,1)';
+            }
+        });
+
+        try { dragEl.setPointerCapture(pointerId); } catch (_) {}
+        e.preventDefault();
+    };
+
+    const onMove = (e) => {
+        if (!dragEl || e.pointerId !== pointerId) return;
+        const y = e.clientY + window.scrollY;
+        const deltaY = y - startY;
+
+        // Translate the dragged tile to follow the finger
+        dragEl.style.transform = `translate3d(0, ${deltaY}px, 0) scale(1.03)`;
+
+        // Compute the dragged tile's effective TOP in doc coords (its visual position).
+        const draggedTop = tiles[startIdx].top + deltaY;
+        const draggedCenter = draggedTop + tiles[startIdx].height / 2;
+        // Find the slot whose center the dragged tile's center has crossed
+        let target = tiles.length - 1;
+        for (let i = 0; i < tiles.length; i++) {
+            const t = tiles[i];
+            if (draggedCenter < t.top + t.height / 2) { target = i; break; }
+        }
+        if (target >= tiles.length) target = tiles.length - 1;
+        if (target < 0) target = 0;
+
+        if (target === dragIdx) return;
+        dragIdx = target;
+
+        // Animate each non-dragged tile to its NEW position based on dragIdx
+        // The dragged tile is virtually at dragIdx; other tiles shift to fill.
+        tiles.forEach((t, i) => {
+            if (t.el === dragEl) return;
+            const newIdx = computeNewIndex(i, startIdx, dragIdx);
+            const dy = tiles[newIdx].top - t.top;
+            t.el.style.transform = `translate3d(0, ${dy}px, 0)`;
+        });
+    };
+
+    // Given a tile's original index `i`, a dragged-tile original index `startIdx`,
+    // and the dragged-tile current intended index `dragIdx`, return where tile `i`
+    // should currently sit.
+    function computeNewIndex(i, startIdx, dragIdx) {
+        if (i === startIdx) return dragIdx;
+        if (startIdx < dragIdx) {
+            // dragged moved DOWN: tiles between startIdx+1..dragIdx shift UP by 1
+            if (i > startIdx && i <= dragIdx) return i - 1;
+        } else if (startIdx > dragIdx) {
+            // dragged moved UP: tiles between dragIdx..startIdx-1 shift DOWN by 1
+            if (i >= dragIdx && i < startIdx) return i + 1;
+        }
+        return i;
+    }
+
+    const onUp = (e) => {
+        if (!dragEl || e.pointerId !== pointerId) return;
+        const committedIdx = dragIdx;
+        const fromIdx = startIdx;
+        // Reset visuals
+        tiles.forEach(t => { t.el.style.transform = ''; t.el.style.transition = ''; });
+        dragEl.classList.remove('rb-dragging');
+        dragEl.style.zIndex = ''; dragEl.style.transform = ''; dragEl.style.transition = '';
+        try { dragEl.releasePointerCapture(pointerId); } catch (_) {}
+        dragEl = null;
+
+        if (committedIdx !== fromIdx) {
+            // Commit to data + Firebase
+            const moved = folders.splice(fromIdx, 1)[0];
+            folders.splice(committedIdx, 0, moved);
             saveFolders();
-            // Sync each folder's new sort to Firebase
             folders.forEach((f, i) => {
                 f.order = i;
                 if (typeof syncFolderToFirebase === 'function') {
                     try { syncFolderToFirebase(f); } catch (_) {}
                 }
             });
-        },
-        () => {
             renderFoldersList();
             renderRecipeGrid(elements.homeSearchInput?.value || '');
         }
-    );
+    };
+
+    grid.addEventListener('pointerdown', onDown);
+    grid.addEventListener('pointermove', onMove);
+    grid.addEventListener('pointerup', onUp);
+    grid.addEventListener('pointercancel', onUp);
 }
 
 // ---------- Editorial drawer ----------
@@ -2806,23 +2918,6 @@ function closeDrawer() {
     document.body.style.overflow = '';
 }
 function renderDrawer() {
-    const av = document.getElementById('rbDrawerProfileAv');
-    const name = document.getElementById('rbDrawerProfileName');
-    const mail = document.getElementById('rbDrawerProfileMail');
-    if (currentUser) {
-        const display = currentUser.displayName || currentUser.email || 'You';
-        if (av) {
-            if (currentUser.photoURL) av.innerHTML = `<img src="${escapeHtml(currentUser.photoURL)}" alt="">`;
-            else { av.innerHTML = ''; av.textContent = (display[0] || 'N').toUpperCase(); }
-        }
-        if (name) name.textContent = display;
-        if (mail) mail.textContent = currentUser.email || '';
-    } else {
-        if (av) { av.innerHTML = ''; av.textContent = 'N'; }
-        if (name) name.textContent = 'Sign in';
-        if (mail) mail.textContent = 'to sync across devices';
-    }
-
     const allCount = document.getElementById('rbDrawerAllCount');
     if (allCount) allCount.textContent = String(recipes.length);
     const favCount = document.getElementById('rbDrawerFavCount');
@@ -3434,6 +3529,30 @@ function setupEventListeners() {
 
     // Settings button
     elements.settingsBtn.addEventListener('click', () => {
+        // Account section: name + email + sign-out (only if signed in)
+        const accountBox = document.getElementById('settingsAccount');
+        const nameEl = document.getElementById('settingsAccountName');
+        const mailEl = document.getElementById('settingsAccountMail');
+        const initEl = document.getElementById('settingsAccountInitial');
+        const avEl = document.getElementById('settingsAccountAv');
+        if (accountBox && currentUser) {
+            const display = currentUser.displayName || currentUser.email || 'You';
+            if (nameEl) nameEl.textContent = display;
+            if (mailEl) mailEl.textContent = currentUser.email || '';
+            if (currentUser.photoURL && avEl) {
+                avEl.innerHTML = `<img src="${escapeHtml(currentUser.photoURL)}" alt="">`;
+            } else if (initEl) {
+                avEl.innerHTML = '';
+                avEl.appendChild(Object.assign(document.createElement('span'), {
+                    id: 'settingsAccountInitial',
+                    textContent: (display[0] || 'N').toUpperCase(),
+                }));
+            }
+            accountBox.hidden = false;
+        } else if (accountBox) {
+            accountBox.hidden = true;
+        }
+
         // Load current API key (masked)
         if (claudeApiKey) {
             elements.apiKeyInput.value = claudeApiKey;
@@ -3446,6 +3565,12 @@ function setupEventListeners() {
         if (elements.nookUrlInput) elements.nookUrlInput.value = nookUrl || '';
         if (elements.nookTokenInput) elements.nookTokenInput.value = nookToken || '';
         openModal(elements.settingsModal);
+    });
+
+    // Settings sign-out (delegates to existing sign-out flow)
+    document.getElementById('settingsSignOutBtn')?.addEventListener('click', () => {
+        closeModal(elements.settingsModal);
+        elements.signOutBtn?.click();
     });
 
     // Save settings
@@ -4269,9 +4394,6 @@ function setupEventListeners() {
         const tn = document.getElementById('rbDrawerThemeName');
         const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'editorial';
         if (tn) tn.textContent = cur;
-    });
-    document.getElementById('rbDrawerProfile')?.addEventListener('click', () => {
-        closeDrawer(); setTimeout(() => elements.profileBtn?.click(), 180);
     });
     document.getElementById('rbDrawerAddFolder')?.addEventListener('click', (e) => {
         e.stopPropagation();
