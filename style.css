@@ -2545,23 +2545,17 @@ input:focus, textarea:focus, select:focus {
     pointer-events: auto;
 }
 
-/* Persistent sticky top bar — stays visible while scrolling, on home AND detail */
+/* Persistent sticky top bar — solid pure black, no transparency. Sticks at the
+   top of its scroll container (window for home; .rb-detail-scroll for detail). */
 .recipe-home .rb-topbar,
 .rb-detail .rb-topbar {
     position: sticky;
     top: 0;
     z-index: 30;
-    background: linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.78) 92%, rgba(0,0,0,0) 100%);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: #000;
     margin: 0;
     padding-top: max(14px, env(safe-area-inset-top, 0px) + 8px);
     padding-bottom: 10px;
-}
-/* Detail topbar sits above the hero — make its background more opaque so the
-   hero image doesn't bleed through ugly. */
-.rb-detail .rb-topbar {
-    background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 92%, rgba(0,0,0,0) 100%);
 }
 /* When the burger sits in "back" mode, show only the back arrow */
 .rb-burger .rb-topbar-icon-back { display: none; }
@@ -3020,24 +3014,34 @@ input:focus, textarea:focus, select:focus {
 .rb-shelf-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 
 /* ---------- DETAIL: editorial hero overlay (replaces old image) ---------- */
+/* Detail is its OWN fullscreen overlay with its own scroll context.
+   This keeps the home's window scroll position intact while a recipe is open,
+   so back-nav is instant with no scroll jumps. */
 .rb-detail {
-    position: relative;
-    width: 100%;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
     background: var(--bg-primary);
     color: var(--text-primary);
-    /* pan-y lets vertical scroll work naturally while reserving horizontal
-       swipes for our edge-swipe-back gesture (otherwise iOS may claim them). */
+    touch-action: pan-y;
+    overflow: hidden;
+    will-change: transform;
+}
+.rb-detail-scroll {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 40px;
     touch-action: pan-y;
 }
-.rb-detail-scroll { padding-bottom: 40px; }
 .rb-d-hero {
     position: relative;
     width: 100%;
-    height: 290px;
+    height: 260px;
     overflow: hidden;
     background: #050505;
-    /* Pull hero up so the topbar overlays its top — hero feels full-bleed */
-    margin-top: calc(-1 * (max(14px, env(safe-area-inset-top, 0px) + 8px) + 10px + 42px));
 }
 .rb-d-hero-bg { position: absolute; inset: 0; }
 .rb-d-hero-img {

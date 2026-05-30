@@ -2383,13 +2383,14 @@ function showHomeView() {
     hideRecipeStickyHeader();
     elements.recipeHome.style.display = 'block';
     elements.recipeDetail.style.display = 'none';
-    // Clear any swipe transform left over
+    // Clear any swipe transform / inline positioning left over
     elements.recipeDetail.style.transition = 'none';
     elements.recipeDetail.style.transform = '';
     elements.emptyState.style.display = 'none';
     currentRecipeId = null;
     renderRecipeGrid();
-    rbRestoreHomeScroll();
+    // No window.scrollTo here — the home's scroll is whatever it was when the
+    // detail opened, which is exactly what we want.
 }
 
 function getCurrentFolderName() {
@@ -2520,31 +2521,8 @@ function rbInstallEdgeSwipe() {
         el.style.transform = 'translateX(0)';
     };
 
-    // Decide which layer (if any) the current swipe should drag, and reveal what
-    // sits underneath so the user sees the destination as the front view slides off.
-    let restoreBeneath = null;
-
-    const revealHomeBeneath = () => {
-        // Float the detail above the home so the home is visible during the swipe
-        const home = elements.recipeHome;
-        const det = elements.recipeDetail;
-        if (!home || !det) return null;
-        const prevHomeDisplay = home.style.display;
-        home.style.display = 'block';
-        const prev = {
-            position: det.style.position, top: det.style.top, left: det.style.left,
-            right: det.style.right, bottom: det.style.bottom, zIndex: det.style.zIndex,
-            background: det.style.background,
-        };
-        det.style.position = 'fixed';
-        det.style.top = '0'; det.style.left = '0'; det.style.right = '0'; det.style.bottom = '0';
-        det.style.zIndex = '90';
-        det.style.background = 'var(--bg-primary)';
-        return () => {
-            home.style.display = prevHomeDisplay;
-            Object.assign(det.style, prev);
-        };
-    };
+    // Detail is already a fixed-position overlay, so the home is naturally visible
+    // underneath during a swipe — no extra reveal needed.
 
     const captureFolderSnapshot = () => {
         // Clone the current home, overlay it on top, re-render the live home as "all"
@@ -2593,15 +2571,7 @@ function rbInstallEdgeSwipe() {
         // 2) Recipe detail
         const det = document.getElementById('recipeDetail');
         if (det && det.style.display !== 'none') {
-            restoreBeneath = revealHomeBeneath();
-            return { el: det, pop: () => {
-                showHomeView();
-                if (restoreBeneath) restoreBeneath();
-                restoreBeneath = null;
-            }, cancel: () => {
-                if (restoreBeneath) restoreBeneath();
-                restoreBeneath = null;
-            }};
+            return { el: det, pop: () => showHomeView(), cancel: null };
         }
         // 3) Folder/Favorites home → swipe back to all-recipes
         if (currentFolderId && currentFolderId !== 'all') {
@@ -3160,22 +3130,19 @@ function selectRecipe(id) {
         return;
     }
 
-    // Remember where the home was scrolled so back-nav can restore it
-    if (elements.recipeHome && elements.recipeHome.style.display !== 'none') {
-        rbRememberHomeScroll();
-    }
-
-    // Hide home view and empty state, show recipe detail
+    // The detail overlays the home as a fixed-position layer with its own
+    // scroll, so the home's window scroll position is preserved automatically.
+    // No need to save/restore window.scrollY.
     elements.emptyState.style.display = 'none';
-    if (elements.recipeHome) elements.recipeHome.style.display = 'none';
     elements.recipeDetail.style.display = 'block';
     // Reset any leftover swipe transform from a previous nav
     elements.recipeDetail.style.transition = 'none';
     elements.recipeDetail.style.transform = 'translateX(0)';
     rbInstallEdgeSwipe();
 
-    // Scroll the detail to top when opening (the home scroll is preserved separately)
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    // Reset detail's own scroll to the top
+    const detScroll = document.getElementById('rbDetailScroll');
+    if (detScroll) detScroll.scrollTop = 0;
 
     // Title (now overlaid on the hero)
     elements.recipeTitle.textContent = recipe.title;
@@ -4504,7 +4471,6 @@ function setupEventListeners() {
     }
 
     function updateRbTopbar() {
-        // Update both topbars; only the visible one's scroll matters
         const homeShown = elements.recipeHome && elements.recipeHome.style.display !== 'none';
         const detailShown = elements.recipeDetail && elements.recipeDetail.style.display !== 'none';
 
@@ -4527,9 +4493,11 @@ function setupEventListeners() {
             if (label) label.textContent = rbBreadcrumbLabel(true);
         }
     }
+    // Window scroll drives the home topbar; .rb-detail-scroll drives the detail's
     rbScrollHost.addEventListener('scroll', updateRbTopbar, { passive: true });
     window.addEventListener('scroll', updateRbTopbar, { passive: true });
-    // Re-run whenever a render touches state that affects the label
+    const detScroll = document.getElementById('rbDetailScroll');
+    detScroll?.addEventListener('scroll', updateRbTopbar, { passive: true });
     window._rbUpdateTopbar = updateRbTopbar;
     updateRbTopbar();
 
