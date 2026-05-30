@@ -2116,7 +2116,7 @@ function updateAuthUI() {
     }
 }
 
-// Save API key to Firebase user settings
+// Save API key to Firebase user settings (merges, doesn't clobber other fields)
 async function saveApiKeyToFirebase(apiKey) {
     if (!currentUser || !window.firebaseDb) return;
 
@@ -2125,14 +2125,31 @@ async function saveApiKeyToFirebase(apiKey) {
         await window.firebaseSetDoc(docRef, {
             claudeApiKey: apiKey,
             updatedAt: new Date().toISOString()
-        });
+        }, { merge: true });
         console.log('API key saved to Firebase');
     } catch (error) {
         console.error('Error saving API key to Firebase:', error);
     }
 }
 
-// Load API key from Firebase user settings
+// Save Nook URL + token to Firebase user settings (same doc, merged)
+async function saveNookSettingsToFirebase(url, token) {
+    if (!currentUser || !window.firebaseDb) return;
+
+    try {
+        const docRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid, 'settings', 'apiKey');
+        await window.firebaseSetDoc(docRef, {
+            nookUrl: url || '',
+            nookToken: token || '',
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log('Nook settings saved to Firebase');
+    } catch (error) {
+        console.error('Error saving Nook settings to Firebase:', error);
+    }
+}
+
+// Load all user settings from Firebase (API key + Nook config) on auth-ready
 function setupUserSettingsListener() {
     if (!currentUser || !window.firebaseDb) return;
 
@@ -2146,10 +2163,24 @@ function setupUserSettingsListener() {
                     claudeApiKey = data.claudeApiKey;
                     localStorage.setItem(API_KEY_STORAGE, claudeApiKey);
                     console.log('API key loaded from Firebase');
-
-                    // Update the settings modal if open
                     if (elements.apiKeyInput) {
                         elements.apiKeyInput.value = claudeApiKey;
+                    }
+                }
+                if (typeof data.nookUrl === 'string') {
+                    nookUrl = data.nookUrl;
+                    if (nookUrl) localStorage.setItem(NOOK_URL_STORAGE, nookUrl);
+                    else localStorage.removeItem(NOOK_URL_STORAGE);
+                    if (elements.nookUrlInput) {
+                        elements.nookUrlInput.value = nookUrl;
+                    }
+                }
+                if (typeof data.nookToken === 'string') {
+                    nookToken = data.nookToken;
+                    if (nookToken) localStorage.setItem(NOOK_TOKEN_STORAGE, nookToken);
+                    else localStorage.removeItem(NOOK_TOKEN_STORAGE);
+                    if (elements.nookTokenInput) {
+                        elements.nookTokenInput.value = nookToken;
                     }
                 }
             }
@@ -2229,6 +2260,8 @@ async function signOutUser() {
         recipes = [];
         folders = [];
         claudeApiKey = null;
+        nookUrl = '';
+        nookToken = '';
 
         // Show login screen
         showLoginScreen();
@@ -2953,7 +2986,7 @@ function setupEventListeners() {
             showToast('API key removed.');
         }
 
-        // Save Nook settings (local only — no need to sync the token)
+        // Save Nook settings — local + Firebase, so it syncs across devices
         const newNookUrl = (elements.nookUrlInput?.value || '').trim().replace(/\/+$/, '');
         const newNookToken = (elements.nookTokenInput?.value || '').trim();
         nookUrl = newNookUrl;
@@ -2962,6 +2995,7 @@ function setupEventListeners() {
         else localStorage.removeItem(NOOK_URL_STORAGE);
         if (newNookToken) localStorage.setItem(NOOK_TOKEN_STORAGE, newNookToken);
         else localStorage.removeItem(NOOK_TOKEN_STORAGE);
+        await saveNookSettingsToFirebase(newNookUrl, newNookToken);
 
         setTimeout(() => closeModal(elements.settingsModal), 1000);
     });
