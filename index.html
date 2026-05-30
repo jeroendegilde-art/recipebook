@@ -34,7 +34,7 @@
     <link rel="stylesheet" href="style.css?v=20260322s">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Login Screen -->
@@ -191,16 +191,47 @@
         <main class="main-content" id="mainContent">
             <!-- Recipe Grid (home view) -->
             <div class="recipe-home" id="recipeHome">
-                <div class="home-header">
-                    <h2 class="home-title" id="homeTitle">My Recipes</h2>
-                    <div class="home-search">
+
+                <!-- Editorial top bar -->
+                <div class="rb-topbar rb-anim" style="--d: 0ms">
+                    <button class="rb-burger rb-press" id="homeMenuBtn" aria-label="Menu">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6h18M3 12h18M3 18h18"></path>
+                        </svg>
+                    </button>
+                    <span class="rb-wordmark">Recipe Book</span>
+                    <span class="rb-word-dot"></span>
+                    <span class="rb-spacer"></span>
+                    <button class="rb-avatar rb-press" id="homeAvatarBtn" title="Profile">N</button>
+                </div>
+
+                <!-- Big masthead -->
+                <header class="rb-head rb-anim" style="--d: 60ms">
+                    <h1 class="rb-app-title">Recipe Book<span class="rb-title-dot">.</span></h1>
+                </header>
+                <div class="rb-touched rb-anim" style="--d: 100ms">
+                    <span id="homeTitle">Your kitchen</span>
+                    <span id="homeRecipeCount">0 recipes</span>
+                </div>
+
+                <!-- Search pill (kept the input id so app.js still wires) -->
+                <div class="home-header" style="padding: 0 20px 22px; margin: 0;">
+                    <div class="home-search rb-anim" style="--d: 140ms">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="11" cy="11" r="8"></circle>
                             <path d="M21 21l-4.35-4.35"></path>
                         </svg>
-                        <input type="text" id="homeSearchInput" placeholder="Search recipes...">
+                        <input type="text" id="homeSearchInput" placeholder="Search recipes…">
                     </div>
                 </div>
+
+                <!-- + NEW recipe band -->
+                <button class="rb-new-band rb-press rb-anim" style="--d: 180ms" id="rbNewRecipeBtn">
+                    <span class="rb-new-label">+ NEW</span>
+                    <span class="rb-new-title">Add a recipe<span class="rb-title-dot">.</span></span>
+                    <span class="rb-new-sub">Scan · paste a link · type it in</span>
+                </button>
+
                 <div class="recipe-grid" id="recipeGrid">
                     <!-- Recipe cards will be inserted here -->
                 </div>

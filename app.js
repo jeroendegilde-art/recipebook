@@ -2381,8 +2381,46 @@ function getCurrentFolderName() {
 }
 
 // Render the recipe grid on home page
+/* Generate a typographic tile for a recipe.
+   If the recipe has an image, render it; otherwise produce a colored
+   gradient + big serif initial that's editorial-friendly. */
+function generateRecipeTile(recipe, opts = {}) {
+    const variant = opts.variant || 'thumb';
+    if (recipe.image) {
+        return `<div class="rb-tile rb-tile-${variant}"><img src="${escapeHtml(recipe.image)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"/></div>`;
+    }
+    const title = recipe.title || 'Recipe';
+    const initial = title.trim().charAt(0).toUpperCase();
+    // Deterministic hue from title
+    let h = 0;
+    for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) | 0;
+    const hues = [22, 30, 38, 14, 8, 25, 200, 162];
+    const hue = hues[Math.abs(h) % hues.length];
+    const glow = `hsl(${hue} 56% 60%)`;
+    const monoColor = `hsl(${hue} 50% 75%)`;
+    const monoFont = variant === 'hero' ? 120 : variant === 'card' ? 90 : 60;
+    return `
+        <div class="rb-tile rb-tile-${variant}">
+            <div class="rb-tile-glow" style="background: radial-gradient(120% 120% at 35% 25%, ${glow} 0%, transparent 60%);"></div>
+            <div class="rb-tile-shade"></div>
+            <div class="rb-tile-mono" style="font-size:${monoFont}px;color:${monoColor};">${escapeHtml(initial)}</div>
+        </div>
+    `;
+}
+
 function renderRecipeGrid(filter = '') {
     if (elements.homeTitle) elements.homeTitle.textContent = getCurrentFolderName();
+    const homeRecipeCount = document.getElementById('homeRecipeCount');
+    if (homeRecipeCount) {
+        const n = recipes.length;
+        homeRecipeCount.textContent = `${n} ${n === 1 ? 'recipe' : 'recipes'}`;
+    }
+    // Avatar initial — first letter of signed-in user (fallback N)
+    const homeAvatarBtn = document.getElementById('homeAvatarBtn');
+    if (homeAvatarBtn && currentUser) {
+        const name = currentUser.displayName || currentUser.email || 'N';
+        homeAvatarBtn.textContent = (name[0] || 'N').toUpperCase();
+    }
 
     let filteredRecipes = filter
         ? recipes.filter(r => r.title.toLowerCase().includes(filter.toLowerCase()))
@@ -2416,34 +2454,24 @@ function renderRecipeGrid(filter = '') {
 
     elements.recipeGrid.innerHTML = filteredRecipes.map(recipe => {
         const folder = folders.find(f => f.id === recipe.folderId);
+        const tile = generateRecipeTile(recipe);
+        const sub = [];
+        if (recipe.servings) sub.push(escapeHtml(recipe.servings));
+        sub.push(`${recipe.ingredients?.length || 0} ingredients`);
+        if (folder) sub.push(escapeHtml(folder.name));
         return `
-            <button type="button" class="recipe-card" data-id="${recipe.id}">
-                <h3 class="recipe-card-title">${escapeHtml(recipe.title)}</h3>
-                <div class="recipe-card-meta">
-                    <span class="recipe-card-meta-item">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                        </svg>
-                        ${recipe.ingredients.length} ingredients
-                    </span>
-                    ${recipe.servings ? `
-                        <span class="recipe-card-meta-item">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="9" cy="7" r="4"></circle>
-                            </svg>
-                            ${escapeHtml(recipe.servings)}
-                        </span>
-                    ` : ''}
+            <button type="button" class="rb-row rb-press recipe-card" data-id="${recipe.id}">
+                <div class="rb-row-thumb">${tile}</div>
+                <div class="rb-row-body">
+                    <div class="rb-row-title">${escapeHtml(recipe.title)}</div>
+                    <div class="rb-row-sub">${sub.map((s, i) => i === 0 ? s : `<span class="rb-dot">·</span><span>${s}</span>`).join('')}</div>
                 </div>
-                ${folder ? `
-                    <div class="recipe-card-folder">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                        </svg>
-                        ${escapeHtml(folder.name)}
-                    </div>
-                ` : ''}
+                ${recipe.favorite ? `<span class="rb-row-star">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.6l5.8-.8z"/></svg>
+                </span>` : ''}
+                <span class="rb-row-chev">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+                </span>
             </button>
         `;
     }).join('');
@@ -3714,6 +3742,21 @@ function setupEventListeners() {
     // Mobile menu
     elements.menuBtn?.addEventListener('click', () => {
         elements.sidebar.classList.toggle('open');
+    });
+
+    // Home editorial top bar — burger + avatar + "+ NEW" band
+    const homeMenuBtn = document.getElementById('homeMenuBtn');
+    const homeAvatarBtn = document.getElementById('homeAvatarBtn');
+    const rbNewRecipeBtn = document.getElementById('rbNewRecipeBtn');
+    homeMenuBtn?.addEventListener('click', () => {
+        elements.sidebar?.classList.add('open');
+    });
+    homeAvatarBtn?.addEventListener('click', () => {
+        elements.sidebar?.classList.add('open');
+    });
+    rbNewRecipeBtn?.addEventListener('click', () => {
+        // Trigger the same flow as the existing add button
+        elements.addRecipeBtn?.click();
     });
 
     // Theme toggle

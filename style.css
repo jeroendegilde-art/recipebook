@@ -1,31 +1,52 @@
-/* CSS Variables */
+/* ── Editorial design tokens — Nook-matching ────────────── */
 :root {
-    /* Dark theme (default) - Pure AMOLED black */
+    /* surfaces (AMOLED black, warm darks) */
     --bg-primary: #000000;
-    --bg-secondary: #000000;
-    --bg-tertiary: #0d0d0d;
-    --bg-hover: #1a1a1a;
-    --text-primary: #ffffff;
-    --text-secondary: #b8bcc8;
-    --text-muted: #7a8194;
-    --border-color: #222222;
-    --accent: #a8c7fa;
-    --accent-hover: #8ab4f8;
-    --accent-text: #000000;
+    --bg-secondary: #0c0b09;
+    --bg-tertiary: #151310;
+    --bg-hover: #1d1a14;
+
+    /* ink (warm cream, not pure white) */
+    --text-primary: #f1ece0;
+    --text-secondary: #a59f90;
+    --text-muted: #6f6a5e;
+    --border-color: #211e18;
+    --border2: #322d24;
+
+    /* accents */
+    --accent: #e27c6c;          /* coral */
+    --accent-hover: #d36b5b;
+    --accent-text: #1c0c08;
+    --accent-ink: #1c0c08;
+    --accent2: #bbe183;         /* sage */
+    --accent2-ink: #16210a;
+    --accent-dot: #c0564a;
+
     --danger: #f4a8a8;
     --danger-hover: #f28b8b;
-    --success: #a8e6cf;
+    --success: #bbe183;
+
+    /* pastel hues kept for tile fallback gradients */
     --pastel-pink: #ffd1dc;
     --pastel-lavender: #e6d5f2;
     --pastel-mint: #c5f0e3;
     --pastel-peach: #ffdab9;
     --pastel-sky: #bae1ff;
+
     --shadow: none;
-    --shadow-lg: none;
-    --radius: 10px;
-    --radius-lg: 16px;
+    --shadow-lg: 0 14px 40px rgba(0,0,0,0.6);
+    --radius: 6px;
+    --radius-lg: 9px;
     --sidebar-width: 280px;
     --header-height: 56px;
+
+    /* type */
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-display: 'Newsreader', Georgia, serif;
+    --title-weight: 500;
+    --title-ls: 0em;
+    --kicker-ls: 0.2em;
+    --kicker-tt: uppercase;
 }
 
 [data-theme="light"] {
@@ -2113,3 +2134,360 @@ button.recipe-card:active {
     text-decoration: line-through;
     color: var(--text-muted);
 }
+
+/* ────────────────────────────────────────────────────────── */
+/* ── Editorial overrides on existing elements ────────────── */
+/* ────────────────────────────────────────────────────────── */
+
+body, html { font-family: var(--font-body); }
+
+/* Pull the big page titles into Newsreader italic */
+.recipe-detail h1,
+.recipe-title-display,
+#recipeTitle,
+.modal-header h2,
+.empty-state h2,
+.login-container h1,
+.sidebar-brand-name {
+    font-family: var(--font-display);
+    font-weight: var(--title-weight);
+    letter-spacing: var(--title-ls);
+    font-style: italic;
+}
+
+/* Sidebar editorial */
+.sidebar {
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+}
+.sidebar-brand-name { font-style: italic; font-size: 22px; }
+
+/* Cards / Recipe rows pick up the new tokens automatically via vars */
+.recipe-card {
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+.recipe-card:hover { background: var(--bg-tertiary); }
+.recipe-card h3 {
+    font-family: var(--font-display);
+    font-weight: var(--title-weight);
+    letter-spacing: var(--title-ls);
+}
+
+/* Login restyle */
+.login-container h1 { font-size: 44px; letter-spacing: -0.02em; }
+
+/* Folder pills, chips */
+.folder-tag, .recipe-card-folder, .meta-pill {
+    border-radius: 4px !important;
+    font-family: var(--font-body);
+}
+
+/* Buttons */
+.btn-primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-radius: var(--radius);
+    font-family: var(--font-body);
+    font-weight: 600;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: var(--radius);
+}
+
+/* Inputs */
+input[type="text"], input[type="url"], input[type="email"],
+input[type="password"], textarea, select {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border2);
+    color: var(--text-primary);
+    border-radius: var(--radius);
+    font-family: var(--font-body);
+}
+input:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+/* Modal corners */
+.modal-content { border-radius: var(--radius-lg); background: var(--bg-secondary); border: 1px solid var(--border-color); }
+.modal-header { border-bottom-color: var(--border-color); }
+
+/* ────────────────────────────────────────────────────────── */
+/* ── rb-* editorial components ──────────────────────────── */
+/* ────────────────────────────────────────────────────────── */
+
+/* Top bar (burger + wordmark + dot + avatar) */
+.rb-topbar {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 14px 20px;
+    margin-bottom: 4px;
+}
+.rb-burger {
+    background: none; border: none; cursor: pointer; padding: 6px;
+    color: var(--text-primary); margin-left: -6px;
+    display: flex; align-items: center; justify-content: center;
+}
+.rb-wordmark {
+    font-family: var(--font-display); font-style: italic; font-size: 19px;
+    font-weight: 500; color: var(--text-primary); letter-spacing: 0.01em;
+}
+.rb-word-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent-dot);
+    display: inline-block; flex-shrink: 0;
+}
+.rb-spacer { flex: 1; }
+.rb-avatar {
+    width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
+    background: var(--accent); color: var(--accent-ink);
+    font-weight: 600; font-size: 16px; font-family: var(--font-display); font-style: italic;
+    display: flex; align-items: center; justify-content: center;
+}
+
+/* Big masthead */
+.rb-head { padding: 8px 20px 0; }
+.rb-app-title {
+    font-family: var(--font-display); font-style: italic; font-weight: var(--title-weight);
+    font-size: clamp(48px, 12vw, 64px); line-height: 0.92; letter-spacing: var(--title-ls);
+    color: var(--text-primary); white-space: nowrap;
+}
+.rb-title-dot { color: var(--accent-dot); font-style: normal; }
+.rb-touched {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px 22px; margin-top: 8px;
+    border-top: 1px solid var(--border2);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.18em; color: var(--text-muted);
+}
+
+/* + NEW recipe band */
+.rb-new-band {
+    display: block; width: calc(100% - 40px); margin: 0 20px 22px;
+    text-align: left; cursor: pointer; position: relative;
+    padding: 18px 18px 16px; border: none;
+    border-radius: var(--radius); background: var(--accent); color: var(--accent-ink);
+    overflow: hidden;
+}
+.rb-new-label {
+    position: absolute; top: 16px; right: 18px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
+}
+.rb-new-title {
+    display: block; font-family: var(--font-display); font-style: italic; font-size: 30px;
+    line-height: 1; font-weight: var(--title-weight); letter-spacing: var(--title-ls);
+}
+.rb-new-band .rb-title-dot { color: var(--accent-ink); }
+.rb-new-sub {
+    display: block; margin-top: 9px; font-size: 12.5px; font-weight: 500; opacity: 0.72;
+    font-family: var(--font-body);
+}
+
+/* Section heading */
+.rb-sec { margin: 0 20px 26px; }
+.rb-sec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.rb-sec-title {
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--font-display); font-style: italic; font-size: 18px;
+    font-weight: var(--title-weight); letter-spacing: var(--title-ls); color: var(--text-primary);
+}
+.rb-sec-link { font-size: 13px; color: var(--accent); font-weight: 500; cursor: pointer; }
+
+/* Hero card */
+.rb-hero {
+    display: block; width: calc(100% - 40px); margin: 0 20px 26px;
+    border: 1px solid var(--border-color); cursor: pointer; padding: 0;
+    position: relative; height: 230px; border-radius: var(--radius-lg);
+    overflow: hidden; background: #000; text-align: left; color: var(--text-primary);
+}
+.rb-hero-bg { position: absolute; inset: 0; }
+.rb-hero-inner { position: absolute; left: 0; right: 0; bottom: 0; padding: 20px; z-index: 2; }
+.rb-hero-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: var(--kicker-ls); text-transform: var(--kicker-tt);
+    color: var(--accent); padding: 5px 10px; border-radius: 3px;
+    background: color-mix(in oklab, var(--accent), transparent 84%);
+    border: 1px solid color-mix(in oklab, var(--accent), transparent 70%);
+    margin-bottom: 10px;
+}
+.rb-hero-title {
+    font-family: var(--font-display); font-style: italic; font-size: 30px;
+    line-height: 1.05; font-weight: var(--title-weight); letter-spacing: var(--title-ls);
+    text-wrap: balance; margin-bottom: 12px;
+}
+.rb-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+.rb-stat {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12.5px; color: var(--text-secondary); font-weight: 500;
+}
+.rb-stat svg { color: var(--text-muted); }
+
+/* Recipe tile (generated background for image-less recipes) */
+.rb-tile {
+    position: relative; overflow: hidden; background: #050505;
+    width: 100%; height: 100%;
+}
+.rb-tile-glow {
+    position: absolute; inset: 0; opacity: 0.42; filter: blur(60px);
+    pointer-events: none;
+}
+.rb-tile-mono {
+    position: absolute; right: -6px; top: -30px;
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 168px; line-height: 1;
+    opacity: 0.14; letter-spacing: -0.04em;
+    user-select: none; pointer-events: none;
+}
+.rb-tile-shade {
+    position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 24%, rgba(0,0,0,0.55) 62%, rgba(0,0,0,0.9) 100%);
+}
+
+/* Folder grid */
+.rb-folders { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rb-folder {
+    display: flex; align-items: center; gap: 11px; cursor: pointer; text-align: left;
+    padding: 14px; border-radius: var(--radius); border: 1px solid var(--border-color);
+    background: var(--bg-secondary); color: var(--text-primary);
+}
+.rb-folder-ic {
+    width: 38px; height: 38px; border-radius: 4px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent);
+    background: color-mix(in oklab, var(--accent), transparent 86%);
+    border: 1px solid color-mix(in oklab, var(--accent), transparent 72%);
+}
+.rb-folder-name {
+    flex: 1; font-size: 14.5px; font-weight: 600;
+    font-family: var(--font-display); letter-spacing: var(--title-ls);
+}
+.rb-folder-count { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* Recent rows */
+.rb-rows { display: flex; flex-direction: column; gap: 8px; }
+.rb-row {
+    display: flex; align-items: center; gap: 13px; cursor: pointer; text-align: left;
+    padding: 9px; border-radius: var(--radius); border: 1px solid var(--border-color);
+    background: var(--bg-secondary); color: var(--text-primary);
+}
+.rb-row-thumb {
+    width: 58px; height: 58px;
+    border-radius: calc(var(--radius) - 2px);
+    overflow: hidden; flex-shrink: 0; background: #050505;
+}
+.rb-row-body { flex: 1; min-width: 0; }
+.rb-row-title {
+    font-size: 15px; font-weight: 600;
+    font-family: var(--font-display); letter-spacing: var(--title-ls);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rb-row-sub {
+    display: flex; align-items: center; gap: 6px; margin-top: 3px;
+    font-size: 12.5px; color: var(--text-muted);
+}
+.rb-dot { opacity: 0.5; }
+.rb-row-star { color: #d8b96f; flex-shrink: 0; }
+.rb-row-chev { color: var(--text-muted); opacity: 0.6; flex-shrink: 0; }
+
+/* Press feedback */
+.rb-press { transition: transform 0.12s ease; cursor: pointer; }
+.rb-press:active { transform: scale(0.965); }
+
+/* Reveal animation */
+@keyframes rbUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+}
+.rb-anim {
+    animation: rbUp 0.5s cubic-bezier(0.22,0.7,0.2,1) both;
+    animation-delay: var(--d, 0ms);
+}
+
+/* Detail page action toolbar */
+.rb-actions {
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 20px 0; position: relative; z-index: 8;
+}
+.rb-act-btn {
+    width: 44px; height: 44px; flex: 1; max-width: 52px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--radius); border: 1px solid var(--border-color);
+    background: var(--bg-secondary); color: var(--text-secondary);
+    transition: all 0.15s;
+}
+.rb-act-btn:active { transform: scale(0.94); }
+.rb-act-btn.active {
+    color: #d8b96f;
+    border-color: color-mix(in oklab, #d8b96f, transparent 60%);
+    background: color-mix(in oklab, #d8b96f, transparent 86%);
+}
+.rb-act-btn.danger {
+    color: var(--danger);
+    border-color: color-mix(in oklab, var(--danger), transparent 55%);
+    background: color-mix(in oklab, var(--danger), transparent 86%);
+}
+
+/* Detail chips */
+.rb-d-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 18px 20px 4px; }
+.rb-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; font-weight: 500; color: var(--text-secondary);
+    padding: 7px 12px; border-radius: 4px;
+    background: var(--bg-secondary); border: 1px solid var(--border-color);
+}
+.rb-chip svg { color: var(--accent); }
+
+/* Cook button */
+.rb-cook-btn {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    margin: 16px 20px 4px; width: calc(100% - 40px); height: 50px; cursor: pointer;
+    border-radius: var(--radius); border: none;
+    font-size: 15px; font-weight: 600; font-family: var(--font-display); font-style: italic;
+    background: var(--accent); color: var(--accent-ink); letter-spacing: var(--title-ls);
+}
+
+/* Reorder mode UI — used by both folder and recipe reorder */
+.rb-reorder-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+    padding: 8px 12px; border-radius: var(--radius);
+    background: var(--bg-secondary); border: 1px solid var(--border-color);
+    color: var(--text-secondary); cursor: pointer;
+}
+.rb-reorder-toggle.active {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+}
+.rb-reorder-handle {
+    width: 24px; height: 24px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); cursor: grab;
+}
+.rb-reorder-handle:active { cursor: grabbing; }
+[data-reorder="on"] .rb-reorder-handle { color: var(--accent); }
+[data-reorder="on"] .reorderable {
+    transition: transform 0.18s cubic-bezier(0.32,0.72,0,1);
+}
+.reorderable.dragging {
+    opacity: 0.7;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    z-index: 50;
+}
+
+/* Home grid switches from cards-grid to vertical row layout */
+.recipe-grid {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    grid-template-columns: none !important;
+    padding: 0 20px 32px;
+}
+.recipe-grid .recipe-card.rb-row {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+}
+.recipe-grid .recipe-card.rb-row:hover { background: var(--bg-tertiary); }
