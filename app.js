@@ -2510,6 +2510,7 @@ function rbInstallEdgeSwipe() {
 
     let layer = null;          // element currently being dragged
     let onPop = null;          // pop handler to call when threshold passes
+    let onCancel = null;       // cancel handler when swipe doesn't commit
     let tracking = false;
     let startX = 0, startY = 0, dx = 0, decided = false, horiz = false;
 
@@ -2519,18 +2520,98 @@ function rbInstallEdgeSwipe() {
         el.style.transform = 'translateX(0)';
     };
 
-    // Decide which layer (if any) the current swipe should drag.
+    // Decide which layer (if any) the current swipe should drag, and reveal what
+    // sits underneath so the user sees the destination as the front view slides off.
+    let restoreBeneath = null;
+
+    const revealHomeBeneath = () => {
+        // Float the detail above the home so the home is visible during the swipe
+        const home = elements.recipeHome;
+        const det = elements.recipeDetail;
+        if (!home || !det) return null;
+        const prevHomeDisplay = home.style.display;
+        home.style.display = 'block';
+        const prev = {
+            position: det.style.position, top: det.style.top, left: det.style.left,
+            right: det.style.right, bottom: det.style.bottom, zIndex: det.style.zIndex,
+            background: det.style.background,
+        };
+        det.style.position = 'fixed';
+        det.style.top = '0'; det.style.left = '0'; det.style.right = '0'; det.style.bottom = '0';
+        det.style.zIndex = '90';
+        det.style.background = 'var(--bg-primary)';
+        return () => {
+            home.style.display = prevHomeDisplay;
+            Object.assign(det.style, prev);
+        };
+    };
+
+    const captureFolderSnapshot = () => {
+        // Clone the current home, overlay it on top, re-render the live home as "all"
+        // underneath. On commit, remove the clone. On cancel, restore the folder.
+        const home = elements.recipeHome;
+        if (!home) return null;
+        const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+        const snap = home.cloneNode(true);
+        snap.id = 'rbHomeSnap';
+        snap.style.position = 'fixed';
+        snap.style.top = `-${scrollY}px`;
+        snap.style.left = '0'; snap.style.right = '0';
+        snap.style.height = '100vh';
+        snap.style.zIndex = '90';
+        snap.style.background = 'var(--bg-primary)';
+        snap.style.overflow = 'hidden';
+        snap.style.willChange = 'transform';
+        document.body.appendChild(snap);
+
+        const prevFolder = currentFolderId;
+        currentFolderId = 'all';
+        renderFoldersList();
+        renderRecipeGrid('');
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        return {
+            el: snap,
+            commit: () => snap.remove(),
+            cancel: () => {
+                snap.remove();
+                currentFolderId = prevFolder;
+                renderFoldersList();
+                renderRecipeGrid('');
+                window.scrollTo({ top: scrollY, behavior: 'instant' });
+            },
+        };
+    };
+
     const pickLayer = () => {
-        // Send to Nook is on top of detail, so check it first
+        // 1) Send to Nook on top
         const nook = document.getElementById('sendToNookModal');
         if (nook && nook.classList.contains('active')) {
             return { el: nook.querySelector('.rb-detail') || nook, pop: () => {
                 document.getElementById('closeSendToNookBtn')?.click();
             }};
         }
+        // 2) Recipe detail
         const det = document.getElementById('recipeDetail');
         if (det && det.style.display !== 'none') {
-            return { el: det, pop: () => showHomeView() };
+            restoreBeneath = revealHomeBeneath();
+            return { el: det, pop: () => {
+                showHomeView();
+                if (restoreBeneath) restoreBeneath();
+                restoreBeneath = null;
+            }, cancel: () => {
+                if (restoreBeneath) restoreBeneath();
+                restoreBeneath = null;
+            }};
+        }
+        // 3) Folder/Favorites home → swipe back to all-recipes
+        if (currentFolderId && currentFolderId !== 'all') {
+            const snap = captureFolderSnapshot();
+            if (!snap) return null;
+            return {
+                el: snap.el,
+                pop: () => snap.commit(),
+                cancel: () => snap.cancel(),
+            };
         }
         return null;
     };
@@ -2544,6 +2625,7 @@ function rbInstallEdgeSwipe() {
         if (!picked) return;
         layer = picked.el;
         onPop = picked.pop;
+        onCancel = picked.cancel || null;
         tracking = true;
         decided = false;
         horiz = false;
@@ -2561,7 +2643,13 @@ function rbInstallEdgeSwipe() {
             if (Math.abs(dX) > 8 || Math.abs(dY) > 8) {
                 decided = true;
                 horiz = Math.abs(dX) > Math.abs(dY);
-                if (!horiz) { tracking = false; reset(layer, false); return; }
+                if (!horiz) {
+                    tracking = false;
+                    reset(layer, false);
+                    if (typeof onCancel === 'function') onCancel();
+                    layer = null; onPop = null; onCancel = null;
+                    return;
+                }
             } else return;
         }
         dx = Math.max(0, dX);
@@ -2578,12 +2666,19 @@ function rbInstallEdgeSwipe() {
             layer.style.transform = `translateX(${w}px)`;
             const pop = onPop;
             const el = layer;
+            const lyr = layer;
             setTimeout(() => {
                 reset(el, false);
                 if (typeof pop === 'function') pop();
+                layer = null; onPop = null; onCancel = null;
             }, 320);
         } else {
             reset(layer, true);
+            const cancel = onCancel;
+            setTimeout(() => {
+                if (typeof cancel === 'function') cancel();
+                layer = null; onPop = null; onCancel = null;
+            }, 340);
         }
     };
     window.addEventListener('pointerup', end, { passive: true });
@@ -2810,6 +2905,7 @@ function renderRecipeGrid(filter = '') {
         footEl.hidden = false;
         footEl.textContent = `${recipes.length} ${recipes.length === 1 ? 'recipe' : 'recipes'} · synced`;
     }
+    try { window._rbUpdateTopbar && window._rbUpdateTopbar(); } catch (_) {}
 }
 
 function rbShelfCardHtml(r) {
@@ -3227,6 +3323,7 @@ function selectRecipe(id) {
 
     // Update sidebar selection (just highlight, don't re-render grid)
     updateSidebarSelection();
+    try { window._rbUpdateTopbar && window._rbUpdateTopbar(); } catch (_) {}
 }
 
 // Update which recipe is highlighted in the sidebar without full re-render
@@ -4349,6 +4446,10 @@ function setupEventListeners() {
         elements.addRecipeBtn?.click();
     });
 
+    // Detail topbar — back arrow + avatar (mirror of home topbar)
+    document.getElementById('detailBackBtn')?.addEventListener('click', showHomeView);
+    document.getElementById('detailAvatarBtn')?.addEventListener('click', openDrawer);
+
     // Editorial drawer wiring
     document.getElementById('rbDrawerClose')?.addEventListener('click', closeDrawer);
     document.getElementById('rbDrawerScrim')?.addEventListener('click', closeDrawer);
@@ -4382,20 +4483,54 @@ function setupEventListeners() {
         elements.addFolderBtn?.click();
     });
 
-    // Topbar wordmark fades in only once the big masthead has scrolled off
+    // Topbar wordmark: shows a context-aware breadcrumb only after the user has
+    // scrolled past the big header (masthead on home; hero on detail).
     const rbTopbar = document.getElementById('rbTopbar');
+    const rbTopbarDetail = document.getElementById('rbTopbarDetail');
     const rbScrollHost = document.querySelector('.main-content') || document.documentElement;
+
+    function rbBreadcrumbLabel(forDetail) {
+        const folder = folders.find(f => f.id === currentFolderId);
+        if (forDetail) {
+            const recipe = getRecipe(currentRecipeId);
+            const title = recipe?.title || '';
+            const head = folder ? folder.name : 'Recipe Book';
+            return title ? `${head} › ${title}` : head;
+        }
+        // Home / folder view
+        if (currentFolderId === 'favorites') return 'Recipe Book › Favorites';
+        if (folder) return `Recipe Book › ${folder.name}`;
+        return 'Recipe Book';
+    }
+
     function updateRbTopbar() {
-        if (!rbTopbar) return;
-        const head = document.querySelector('.rb-head');
-        if (!head) return;
-        const rect = head.getBoundingClientRect();
-        // Once the masthead's top edge passes ~30px below the top, show small wordmark
-        if (rect.bottom < 40) rbTopbar.classList.add('scrolled');
-        else rbTopbar.classList.remove('scrolled');
+        // Update both topbars; only the visible one's scroll matters
+        const homeShown = elements.recipeHome && elements.recipeHome.style.display !== 'none';
+        const detailShown = elements.recipeDetail && elements.recipeDetail.style.display !== 'none';
+
+        if (homeShown && rbTopbar) {
+            const head = document.querySelector('.rb-head');
+            if (head) {
+                const r = head.getBoundingClientRect();
+                rbTopbar.classList.toggle('scrolled', r.bottom < 40);
+            }
+            const label = rbTopbar.querySelector('#rbTopbarWordmark .rb-wordmark');
+            if (label) label.textContent = rbBreadcrumbLabel(false);
+        }
+        if (detailShown && rbTopbarDetail) {
+            const hero = document.querySelector('.rb-d-hero');
+            if (hero) {
+                const r = hero.getBoundingClientRect();
+                rbTopbarDetail.classList.toggle('scrolled', r.bottom < 60);
+            }
+            const label = document.getElementById('rbTopbarDetailLabel');
+            if (label) label.textContent = rbBreadcrumbLabel(true);
+        }
     }
     rbScrollHost.addEventListener('scroll', updateRbTopbar, { passive: true });
     window.addEventListener('scroll', updateRbTopbar, { passive: true });
+    // Re-run whenever a render touches state that affects the label
+    window._rbUpdateTopbar = updateRbTopbar;
     updateRbTopbar();
 
     // Theme toggle

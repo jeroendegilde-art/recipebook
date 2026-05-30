@@ -2545,20 +2545,43 @@ input:focus, textarea:focus, select:focus {
     pointer-events: auto;
 }
 
-/* Persistent sticky top bar on phones — stays visible while scrolling */
-.recipe-home .rb-topbar {
+/* Persistent sticky top bar — stays visible while scrolling, on home AND detail */
+.recipe-home .rb-topbar,
+.rb-detail .rb-topbar {
     position: sticky;
     top: 0;
     z-index: 30;
-    background: linear-gradient(180deg, rgba(0,0,0,0.92) 70%, rgba(0,0,0,0.6) 100%);
+    background: linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.78) 92%, rgba(0,0,0,0) 100%);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    margin-bottom: 0;
+    margin: 0;
+    padding-top: max(14px, env(safe-area-inset-top, 0px) + 8px);
+    padding-bottom: 10px;
+}
+/* Detail topbar sits above the hero — make its background more opaque so the
+   hero image doesn't bleed through ugly. */
+.rb-detail .rb-topbar {
+    background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 92%, rgba(0,0,0,0) 100%);
 }
 /* When the burger sits in "back" mode, show only the back arrow */
 .rb-burger .rb-topbar-icon-back { display: none; }
 .rb-burger[data-nav="back"] .rb-topbar-icon-menu { display: none; }
 .rb-burger[data-nav="back"] .rb-topbar-icon-back { display: inline-block; }
+
+/* Breadcrumb wordmark — single line with ellipsis so long recipe names don't wrap */
+.rb-topbar-wordmark {
+    min-width: 0;
+    overflow: hidden;
+    max-width: calc(100% - 110px);
+}
+.rb-topbar-wordmark .rb-wordmark {
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
 
 /* ── Unify fonts: serif for all titles, sidebar included ── */
 .sidebar,
@@ -3013,6 +3036,8 @@ input:focus, textarea:focus, select:focus {
     height: 290px;
     overflow: hidden;
     background: #050505;
+    /* Pull hero up so the topbar overlays its top — hero feels full-bleed */
+    margin-top: calc(-1 * (max(14px, env(safe-area-inset-top, 0px) + 8px) + 10px + 42px));
 }
 .rb-d-hero-bg { position: absolute; inset: 0; }
 .rb-d-hero-img {
@@ -3060,6 +3085,8 @@ input:focus, textarea:focus, select:focus {
     color: #fff;
     display: flex; align-items: center; justify-content: center;
 }
+/* The detail's hero floating back-button is redundant when the topbar is visible */
+.rb-detail .rb-d-hero .rb-back { display: none; }
 .rb-back-solid {
     position: static;
     width: 40px; height: 40px;
@@ -3638,13 +3665,16 @@ input:focus, textarea:focus, select:focus {
 }
 .recipe-home {
     padding: 0 !important;
-    max-width: 100vw;
-    overflow-x: hidden;
+    touch-action: pan-y;
+    /* Do NOT set overflow here — it would create a scroll container and break
+       position: sticky on the topbar. */
 }
 .recipe-home .rb-topbar {
     padding-top: max(14px, env(safe-area-inset-top, 0px) + 8px);
 }
-.recipe-home .rb-head { padding-left: 16px; padding-right: 16px; }
+.recipe-home .rb-head {
+    padding: 18px 16px 0;
+}
 .recipe-home .rb-touched { padding-left: 20px; padding-right: 20px; }
 
 /* When the detail is shown, the inner scroll handles padding; hide global home padding for it */
