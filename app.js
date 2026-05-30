@@ -2383,14 +2383,13 @@ function showHomeView() {
     hideRecipeStickyHeader();
     elements.recipeHome.style.display = 'block';
     elements.recipeDetail.style.display = 'none';
-    // Clear any swipe transform / inline positioning left over
-    elements.recipeDetail.style.transition = 'none';
+    // Clear any stale inline styles on the detail
+    elements.recipeDetail.style.transition = '';
     elements.recipeDetail.style.transform = '';
     elements.emptyState.style.display = 'none';
     currentRecipeId = null;
     renderRecipeGrid();
-    // No window.scrollTo here — the home's scroll is whatever it was when the
-    // detail opened, which is exactly what we want.
+    // No window.scrollTo here — the home's scroll is preserved naturally.
 }
 
 function getCurrentFolderName() {
@@ -2482,178 +2481,10 @@ function rbWireHomeClicks() {
     _rbHomeClickWired = true;
 }
 
-// ---------- Navigation: scroll-position memory + edge-swipe back ----------
-let _rbHomeScroll = 0; // remembered home scroll Y when opening a recipe
-
-function rbRememberHomeScroll() {
-    _rbHomeScroll = window.scrollY || document.documentElement.scrollTop || 0;
-}
-
-function rbRestoreHomeScroll() {
-    // Two rAFs so the layout settles before we jump
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        window.scrollTo({ top: _rbHomeScroll || 0, behavior: 'instant' });
-    }));
-}
-
-/* Edge-swipe-back — bound once at startup. Works on the recipe detail and the
-   Send-to-Nook full-screen overlay. Uses pointer events at the window level so it
-   fires regardless of which child element the touch lands on. The currently visible
-   "layer" element is detected at pointerdown time. */
-let _rbSwipeBound = false;
-function rbInstallEdgeSwipe() {
-    if (_rbSwipeBound) return;
-    _rbSwipeBound = true;
-
-    const TRACK_EDGE = 34;
-    const POP_THRESHOLD = 0.32;
-    const EASE = 'transform 0.34s cubic-bezier(0.32,0.72,0,1)';
-
-    let layer = null;          // element currently being dragged
-    let onPop = null;          // pop handler to call when threshold passes
-    let onCancel = null;       // cancel handler when swipe doesn't commit
-    let tracking = false;
-    let startX = 0, startY = 0, dx = 0, decided = false, horiz = false;
-
-    const reset = (el, animate) => {
-        if (!el) return;
-        el.style.transition = animate ? EASE : 'none';
-        el.style.transform = 'translateX(0)';
-    };
-
-    // Detail is already a fixed-position overlay, so the home is naturally visible
-    // underneath during a swipe — no extra reveal needed.
-
-    const captureFolderSnapshot = () => {
-        // Clone the current home, overlay it on top, re-render the live home as "all"
-        // underneath. On commit, remove the clone. On cancel, restore the folder.
-        const home = elements.recipeHome;
-        if (!home) return null;
-        const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-        const snap = home.cloneNode(true);
-        snap.id = 'rbHomeSnap';
-        snap.style.position = 'fixed';
-        snap.style.top = `-${scrollY}px`;
-        snap.style.left = '0'; snap.style.right = '0';
-        snap.style.height = '100vh';
-        snap.style.zIndex = '90';
-        snap.style.background = 'var(--bg-primary)';
-        snap.style.overflow = 'hidden';
-        snap.style.willChange = 'transform';
-        document.body.appendChild(snap);
-
-        const prevFolder = currentFolderId;
-        currentFolderId = 'all';
-        renderFoldersList();
-        renderRecipeGrid('');
-        window.scrollTo({ top: 0, behavior: 'instant' });
-        return {
-            el: snap,
-            commit: () => snap.remove(),
-            cancel: () => {
-                snap.remove();
-                currentFolderId = prevFolder;
-                renderFoldersList();
-                renderRecipeGrid('');
-                window.scrollTo({ top: scrollY, behavior: 'instant' });
-            },
-        };
-    };
-
-    const pickLayer = () => {
-        // 1) Send to Nook on top
-        const nook = document.getElementById('sendToNookModal');
-        if (nook && nook.classList.contains('active')) {
-            return { el: nook.querySelector('.rb-detail') || nook, pop: () => {
-                document.getElementById('closeSendToNookBtn')?.click();
-            }};
-        }
-        // 2) Recipe detail
-        const det = document.getElementById('recipeDetail');
-        if (det && det.style.display !== 'none') {
-            return { el: det, pop: () => showHomeView(), cancel: null };
-        }
-        // 3) Folder/Favorites home → swipe back to all-recipes
-        if (currentFolderId && currentFolderId !== 'all') {
-            const snap = captureFolderSnapshot();
-            if (!snap) return null;
-            return {
-                el: snap.el,
-                pop: () => snap.commit(),
-                cancel: () => snap.cancel(),
-            };
-        }
-        return null;
-    };
-
-    window.addEventListener('pointerdown', (e) => {
-        if (e.pointerType === 'mouse' && e.button !== 0) return;
-        if (e.clientX > TRACK_EDGE) return;
-        // Don't hijack if the user is starting on an open folder-picker popover
-        if (e.target.closest && e.target.closest('.rb-folder-menu:not([hidden])')) return;
-        const picked = pickLayer();
-        if (!picked) return;
-        layer = picked.el;
-        onPop = picked.pop;
-        onCancel = picked.cancel || null;
-        tracking = true;
-        decided = false;
-        horiz = false;
-        startX = e.clientX;
-        startY = e.clientY;
-        dx = 0;
-        if (layer) layer.style.transition = 'none';
-    }, { passive: true, capture: true });
-
-    window.addEventListener('pointermove', (e) => {
-        if (!tracking) return;
-        const dX = e.clientX - startX;
-        const dY = e.clientY - startY;
-        if (!decided) {
-            if (Math.abs(dX) > 8 || Math.abs(dY) > 8) {
-                decided = true;
-                horiz = Math.abs(dX) > Math.abs(dY);
-                if (!horiz) {
-                    tracking = false;
-                    reset(layer, false);
-                    if (typeof onCancel === 'function') onCancel();
-                    layer = null; onPop = null; onCancel = null;
-                    return;
-                }
-            } else return;
-        }
-        dx = Math.max(0, dX);
-        if (layer) layer.style.transform = `translateX(${dx}px)`;
-    }, { passive: true });
-
-    const end = () => {
-        if (!tracking) return;
-        tracking = false;
-        if (!layer) return;
-        const w = layer.offsetWidth || window.innerWidth || 400;
-        if (dx > w * POP_THRESHOLD) {
-            layer.style.transition = EASE;
-            layer.style.transform = `translateX(${w}px)`;
-            const pop = onPop;
-            const el = layer;
-            const lyr = layer;
-            setTimeout(() => {
-                reset(el, false);
-                if (typeof pop === 'function') pop();
-                layer = null; onPop = null; onCancel = null;
-            }, 320);
-        } else {
-            reset(layer, true);
-            const cancel = onCancel;
-            setTimeout(() => {
-                if (typeof cancel === 'function') cancel();
-                layer = null; onPop = null; onCancel = null;
-            }, 340);
-        }
-    };
-    window.addEventListener('pointerup', end, { passive: true });
-    window.addEventListener('pointercancel', end, { passive: true });
-}
+// Edge-swipe-back removed — caused page-blacking crashes. The topbar back
+// arrow is the canonical back action. Kept as a no-op so existing callers
+// don't error.
+function rbInstallEdgeSwipe() { /* intentionally empty */ }
 
 // Render the editorial home: hero + favorites shelf + collections + recent rows.
 function renderRecipeGrid(filter = '') {
@@ -3132,13 +2963,11 @@ function selectRecipe(id) {
 
     // The detail overlays the home as a fixed-position layer with its own
     // scroll, so the home's window scroll position is preserved automatically.
-    // No need to save/restore window.scrollY.
     elements.emptyState.style.display = 'none';
     elements.recipeDetail.style.display = 'block';
-    // Reset any leftover swipe transform from a previous nav
-    elements.recipeDetail.style.transition = 'none';
-    elements.recipeDetail.style.transform = 'translateX(0)';
-    rbInstallEdgeSwipe();
+    // Clear any stale inline transforms (defensive — no swipe gesture today)
+    elements.recipeDetail.style.transition = '';
+    elements.recipeDetail.style.transform = '';
 
     // Reset detail's own scroll to the top
     const detScroll = document.getElementById('rbDetailScroll');
@@ -4457,16 +4286,14 @@ function setupEventListeners() {
     const rbScrollHost = document.querySelector('.main-content') || document.documentElement;
 
     function rbBreadcrumbLabel(forDetail) {
-        const folder = folders.find(f => f.id === currentFolderId);
+        // Just the current context — no parent path.
         if (forDetail) {
             const recipe = getRecipe(currentRecipeId);
-            const title = recipe?.title || '';
-            const head = folder ? folder.name : 'Recipe Book';
-            return title ? `${head} › ${title}` : head;
+            return recipe?.title || 'Recipe Book';
         }
-        // Home / folder view
-        if (currentFolderId === 'favorites') return 'Recipe Book › Favorites';
-        if (folder) return `Recipe Book › ${folder.name}`;
+        if (currentFolderId === 'favorites') return 'Favorites';
+        const folder = folders.find(f => f.id === currentFolderId);
+        if (folder) return folder.name;
         return 'Recipe Book';
     }
 
@@ -4756,9 +4583,6 @@ function init() {
 
     // Setup event listeners
     setupEventListeners();
-
-    // Install the swipe-back gesture once so it's ready for any nav
-    try { rbInstallEdgeSwipe(); } catch (e) { console.warn('swipe-back install:', e); }
 
     // Show login screen by default (Firebase auth will handle showing app)
     showLoginScreen();
