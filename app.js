@@ -122,8 +122,11 @@ const elements = {
     sendToNookModal: document.getElementById('sendToNookModal'),
     sendToNookBackdrop: document.getElementById('sendToNookBackdrop'),
     closeSendToNookBtn: document.getElementById('closeSendToNookBtn'),
+    cancelSendToNookBtn: document.getElementById('cancelSendToNookBtn'),
     sendToNookList: document.getElementById('sendToNookList'),
-    sendToNookToggleAllBtn: document.getElementById('sendToNookToggleAllBtn'),
+    sendToNookSelectAll: document.getElementById('sendToNookSelectAll'),
+    sendToNookSelectAllRow: document.getElementById('sendToNookSelectAllRow'),
+    sendToNookCount: document.getElementById('sendToNookCount'),
     confirmSendToNookBtn: document.getElementById('confirmSendToNookBtn'),
     sendToNookStatus: document.getElementById('sendToNookStatus'),
 
@@ -3489,6 +3492,19 @@ function setupEventListeners() {
     });
 
     // ── Send to Nook ─────────────────────────────────────────────
+    function updateSendToNookSelectAllState() {
+        const boxes = elements.sendToNookList.querySelectorAll('input[type="checkbox"]');
+        const total = boxes.length;
+        const checked = Array.from(boxes).filter(b => b.checked).length;
+        if (elements.sendToNookSelectAll) {
+            elements.sendToNookSelectAll.checked = total > 0 && checked === total;
+            elements.sendToNookSelectAll.indeterminate = checked > 0 && checked < total;
+        }
+        if (elements.sendToNookCount) {
+            elements.sendToNookCount.textContent = `${checked} of ${total} selected`;
+        }
+    }
+
     elements.sendToNookBtn?.addEventListener('click', () => {
         const recipe = getRecipe(currentRecipeId);
         if (!recipe) return;
@@ -3497,7 +3513,6 @@ function setupEventListeners() {
             openModal(elements.settingsModal);
             return;
         }
-        // Render checkbox list, scaled by current multiplier
         const items = (recipe.ingredients || []).map(ing =>
             scaleIngredient(ing, currentMultiplier)
         );
@@ -3514,17 +3529,28 @@ function setupEventListeners() {
         elements.sendToNookStatus.textContent = '';
         elements.confirmSendToNookBtn.disabled = false;
         elements.confirmSendToNookBtn.textContent = 'Send →';
+        updateSendToNookSelectAllState();
         openModal(elements.sendToNookModal);
     });
 
     elements.closeSendToNookBtn?.addEventListener('click', () => closeModal(elements.sendToNookModal));
+    elements.cancelSendToNookBtn?.addEventListener('click', () => closeModal(elements.sendToNookModal));
     elements.sendToNookBackdrop?.addEventListener('click', () => closeModal(elements.sendToNookModal));
 
-    // Toggle-all checkboxes
-    elements.sendToNookToggleAllBtn?.addEventListener('click', () => {
-        const boxes = elements.sendToNookList.querySelectorAll('input[type="checkbox"]');
-        const allChecked = Array.from(boxes).every(b => b.checked);
-        boxes.forEach(b => { b.checked = !allChecked; });
+    // Master select-all switch — flips every item, reflects indeterminate state
+    elements.sendToNookSelectAll?.addEventListener('change', (e) => {
+        const checked = e.target.checked;
+        elements.sendToNookList
+            .querySelectorAll('input[type="checkbox"]')
+            .forEach(b => { b.checked = checked; });
+        updateSendToNookSelectAllState();
+    });
+
+    // Individual checkbox changes → keep the master in sync
+    elements.sendToNookList?.addEventListener('change', (e) => {
+        if (e.target && e.target.matches('input[type="checkbox"]')) {
+            updateSendToNookSelectAllState();
+        }
     });
 
     // Confirm send

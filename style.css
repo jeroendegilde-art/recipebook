@@ -2008,14 +2008,80 @@ button.recipe-card:active {
     background: rgba(226, 105, 99, 0.08);
 }
 
+/* Fullscreen modal — Send-to-Nook fills the viewport */
+.modal-fullscreen {
+    padding: 0;
+}
+.modal-content-fullscreen {
+    width: 100% !important;
+    max-width: none !important;
+    height: 100dvh;
+    max-height: 100dvh !important;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+.modal-content-fullscreen .modal-header {
+    flex: 0 0 auto;
+    align-items: flex-start;
+}
+.modal-content-fullscreen .modal-body-scroll {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 0 20px 16px;
+}
+.modal-content-fullscreen .modal-footer {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+.modal-content-fullscreen .modal-footer .btn {
+    flex: 1;
+    height: 48px;
+    font-size: 15px;
+}
+
+/* Select-all row above the ingredient list */
+.select-all-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    margin: 0;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    cursor: pointer;
+    user-select: none;
+}
+.select-all-row input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: #E26963;
+    cursor: pointer;
+    margin: 0;
+}
+.select-all-label {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.select-all-count {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+}
+
 .send-to-nook-list {
     list-style: none;
     padding: 0;
-    margin: 0;
-    max-height: 50vh;
-    overflow-y: auto;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    margin: 12px 0 0;
 }
 .send-to-nook-list li {
     border-bottom: 1px solid var(--border-color);
@@ -2026,18 +2092,19 @@ button.recipe-card:active {
 .send-to-nook-item {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 10px 12px;
+    gap: 14px;
+    padding: 14px 4px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.4;
 }
 .send-to-nook-item input[type="checkbox"] {
     margin-top: 2px;
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     accent-color: #E26963;
     cursor: pointer;
+    flex-shrink: 0;
 }
 .send-to-nook-item span {
     flex: 1;

@@ -620,25 +620,36 @@
     </div>
 
     <!-- Send to Nook Modal -->
-    <div class="modal" id="sendToNookModal">
+    <div class="modal modal-fullscreen" id="sendToNookModal">
         <div class="modal-backdrop" id="sendToNookBackdrop"></div>
-        <div class="modal-content modal-small">
+        <div class="modal-content modal-content-fullscreen">
             <div class="modal-header">
-                <h2>Send to Nook</h2>
-                <button class="btn-icon" id="closeSendToNookBtn">
+                <div>
+                    <h2>Send to Nook</h2>
+                    <p class="help-text" style="margin:4px 0 0;">Pick what's going to <strong>Groceries</strong>.</p>
+                </div>
+                <button class="btn-icon" id="closeSendToNookBtn" aria-label="Close">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M18 6L6 18M6 6l12 12"></path>
                     </svg>
                 </button>
             </div>
-            <div class="modal-body">
-                <p class="help-text" style="margin-bottom:12px;">Uncheck anything you already have. Items go to <strong>Groceries</strong>.</p>
+
+            <!-- Select-all switch -->
+            <label class="select-all-row" id="sendToNookSelectAllRow">
+                <input type="checkbox" id="sendToNookSelectAll">
+                <span class="select-all-label">Select all</span>
+                <span class="select-all-count" id="sendToNookCount"></span>
+            </label>
+
+            <div class="modal-body modal-body-scroll">
                 <ul id="sendToNookList" class="send-to-nook-list"></ul>
-                <div class="settings-buttons" style="margin-top:16px;">
-                    <button class="btn btn-secondary" id="sendToNookToggleAllBtn">Toggle all</button>
-                    <button class="btn btn-primary" id="confirmSendToNookBtn">Send →</button>
-                </div>
                 <div id="sendToNookStatus" style="margin-top:12px;text-align:center;font-size:13px;color:var(--text-muted);"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelSendToNookBtn">Cancel</button>
+                <button class="btn btn-primary" id="confirmSendToNookBtn">Send →</button>
             </div>
         </div>
     </div>
