@@ -2545,15 +2545,20 @@ input:focus, textarea:focus, select:focus {
     pointer-events: auto;
 }
 
-/* Make the top bar sticky so the wordmark stays visible while scrolling */
+/* Persistent sticky top bar on phones — stays visible while scrolling */
 .recipe-home .rb-topbar {
     position: sticky;
     top: 0;
     z-index: 30;
-    background: linear-gradient(180deg, rgba(0,0,0,0.92) 80%, rgba(0,0,0,0));
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: linear-gradient(180deg, rgba(0,0,0,0.92) 70%, rgba(0,0,0,0.6) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    margin-bottom: 0;
 }
+/* When the burger sits in "back" mode, show only the back arrow */
+.rb-burger .rb-topbar-icon-back { display: none; }
+.rb-burger[data-nav="back"] .rb-topbar-icon-menu { display: none; }
+.rb-burger[data-nav="back"] .rb-topbar-icon-back { display: inline-block; }
 
 /* ── Unify fonts: serif for all titles, sidebar included ── */
 .sidebar,
@@ -2997,6 +3002,9 @@ input:focus, textarea:focus, select:focus {
     width: 100%;
     background: var(--bg-primary);
     color: var(--text-primary);
+    /* pan-y lets vertical scroll work naturally while reserving horizontal
+       swipes for our edge-swipe-back gesture (otherwise iOS may claim them). */
+    touch-action: pan-y;
 }
 .rb-detail-scroll { padding-bottom: 40px; }
 .rb-d-hero {

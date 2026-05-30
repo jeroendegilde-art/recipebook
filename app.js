@@ -1812,10 +1812,18 @@ function setupFirebaseListener() {
 }
 
 function addRecipe(recipeData) {
+    // If the user is browsing inside a real collection and the new recipe
+    // doesn't already have a folderId set, auto-assign it to that collection.
+    const inFolder = currentFolderId && currentFolderId !== 'all' && currentFolderId !== 'favorites';
+    const auto = (inFolder && !recipeData?.folderId)
+        ? { folderId: currentFolderId }
+        : null;
+
     const recipe = {
         id: generateId(),
         createdAt: new Date().toISOString(),
-        ...recipeData
+        ...recipeData,
+        ...(auto || {}),
     };
     recipes.unshift(recipe);
     saveRecipes();
@@ -2006,8 +2014,9 @@ function renderFoldersList() {
 
     elements.foldersList.innerHTML = html;
 
-    // Keep the editorial drawer in sync (it has its own COLLECTIONS list)
+    // Keep the editorial drawer + form selects in sync (one source of truth)
     try { renderDrawer(); } catch (_) {}
+    try { updateFolderSelects(); } catch (_) {}
 
     // Toggle button
     document.getElementById('folderReorderToggle')?.addEventListener('click', () => {
@@ -2486,43 +2495,65 @@ function rbRestoreHomeScroll() {
     }));
 }
 
-/* Edge-swipe-back: dragging from the left ~34px edge translates the detail right.
-   Releasing past 32% of width pops back; otherwise snaps back. */
+/* Edge-swipe-back — bound once at startup. Works on the recipe detail and the
+   Send-to-Nook full-screen overlay. Uses pointer events at the window level so it
+   fires regardless of which child element the touch lands on. The currently visible
+   "layer" element is detected at pointerdown time. */
+let _rbSwipeBound = false;
 function rbInstallEdgeSwipe() {
-    const detail = elements.recipeDetail;
-    if (!detail || detail._edgeSwipeInstalled) return;
-    detail._edgeSwipeInstalled = true;
+    if (_rbSwipeBound) return;
+    _rbSwipeBound = true;
 
-    const TRACK_EDGE = 34;      // px from the left edge to start tracking
-    const POP_THRESHOLD = 0.32; // fraction of viewport width to commit a pop
+    const TRACK_EDGE = 34;
+    const POP_THRESHOLD = 0.32;
     const EASE = 'transform 0.34s cubic-bezier(0.32,0.72,0,1)';
 
+    let layer = null;          // element currently being dragged
+    let onPop = null;          // pop handler to call when threshold passes
     let tracking = false;
     let startX = 0, startY = 0, dx = 0, decided = false, horiz = false;
 
-    const reset = (animate) => {
-        detail.style.transition = animate ? EASE : 'none';
-        detail.style.transform = 'translateX(0)';
+    const reset = (el, animate) => {
+        if (!el) return;
+        el.style.transition = animate ? EASE : 'none';
+        el.style.transform = 'translateX(0)';
     };
 
-    detail.addEventListener('pointerdown', (e) => {
-        // Only the detail page (not its children that capture pointer)
+    // Decide which layer (if any) the current swipe should drag.
+    const pickLayer = () => {
+        // Send to Nook is on top of detail, so check it first
+        const nook = document.getElementById('sendToNookModal');
+        if (nook && nook.classList.contains('active')) {
+            return { el: nook.querySelector('.rb-detail') || nook, pop: () => {
+                document.getElementById('closeSendToNookBtn')?.click();
+            }};
+        }
+        const det = document.getElementById('recipeDetail');
+        if (det && det.style.display !== 'none') {
+            return { el: det, pop: () => showHomeView() };
+        }
+        return null;
+    };
+
+    window.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
-        const rect = detail.getBoundingClientRect();
-        const localX = e.clientX - rect.left;
-        if (localX > TRACK_EDGE) return;
-        // Don't hijack if the user is starting on the folder picker dropdown
-        if (e.target.closest('.rb-folder-menu')) return;
+        if (e.clientX > TRACK_EDGE) return;
+        // Don't hijack if the user is starting on an open folder-picker popover
+        if (e.target.closest && e.target.closest('.rb-folder-menu:not([hidden])')) return;
+        const picked = pickLayer();
+        if (!picked) return;
+        layer = picked.el;
+        onPop = picked.pop;
         tracking = true;
         decided = false;
         horiz = false;
         startX = e.clientX;
         startY = e.clientY;
         dx = 0;
-        detail.style.transition = 'none';
-    }, { passive: true });
+        if (layer) layer.style.transition = 'none';
+    }, { passive: true, capture: true });
 
-    const onMove = (e) => {
+    window.addEventListener('pointermove', (e) => {
         if (!tracking) return;
         const dX = e.clientX - startX;
         const dY = e.clientY - startY;
@@ -2530,29 +2561,31 @@ function rbInstallEdgeSwipe() {
             if (Math.abs(dX) > 8 || Math.abs(dY) > 8) {
                 decided = true;
                 horiz = Math.abs(dX) > Math.abs(dY);
-                if (!horiz) { tracking = false; reset(false); return; }
+                if (!horiz) { tracking = false; reset(layer, false); return; }
             } else return;
         }
         dx = Math.max(0, dX);
-        detail.style.transform = `translateX(${dx}px)`;
-    };
+        if (layer) layer.style.transform = `translateX(${dx}px)`;
+    }, { passive: true });
+
     const end = () => {
         if (!tracking) return;
         tracking = false;
-        const w = detail.offsetWidth || window.innerWidth || 400;
+        if (!layer) return;
+        const w = layer.offsetWidth || window.innerWidth || 400;
         if (dx > w * POP_THRESHOLD) {
-            // Animate the rest of the way out then pop
-            detail.style.transition = EASE;
-            detail.style.transform = `translateX(${w}px)`;
+            layer.style.transition = EASE;
+            layer.style.transform = `translateX(${w}px)`;
+            const pop = onPop;
+            const el = layer;
             setTimeout(() => {
-                reset(false);
-                showHomeView();
+                reset(el, false);
+                if (typeof pop === 'function') pop();
             }, 320);
         } else {
-            reset(true);
+            reset(layer, true);
         }
     };
-    window.addEventListener('pointermove', onMove, { passive: true });
     window.addEventListener('pointerup', end, { passive: true });
     window.addEventListener('pointercancel', end, { passive: true });
 }
@@ -2563,6 +2596,15 @@ function renderRecipeGrid(filter = '') {
     // On desktop the drawer is permanently visible, so always keep it in sync.
     if (window.matchMedia && window.matchMedia('(min-width: 1024px)').matches) {
         try { renderDrawer(); } catch (_) {}
+    }
+
+    // Swap the burger to a back arrow when viewing a folder/Favorites so the user
+    // can return to the all-recipes top with one tap.
+    const burger = document.getElementById('homeMenuBtn');
+    if (burger) {
+        const inFolder = currentFolderId && currentFolderId !== 'all';
+        burger.dataset.nav = inFolder ? 'back' : 'menu';
+        burger.setAttribute('aria-label', inFolder ? 'Back to all recipes' : 'Menu');
     }
     if (elements.homeTitle) elements.homeTitle.textContent = 'Your kitchen';
 
@@ -3411,7 +3453,17 @@ function setupPdfTabHandlers() {
 function setupEventListeners() {
     // Add recipe buttons
     [elements.addRecipeBtn, elements.emptyAddBtn, elements.mobileAddBtn].forEach(btn => {
-        btn?.addEventListener('click', () => openModal(elements.addModal));
+        btn?.addEventListener('click', () => {
+            // If we're inside a real collection, pre-select that folder in the manual form
+            // so the user sees where the new recipe will land (they can still change it).
+            const inFolder = currentFolderId && currentFolderId !== 'all' && currentFolderId !== 'favorites';
+            if (inFolder && elements.manualFolder) elements.manualFolder.value = currentFolderId;
+            if (inFolder) {
+                const pdfFolderEl = document.getElementById('pdfFolder');
+                if (pdfFolderEl) pdfFolderEl.value = currentFolderId;
+            }
+            openModal(elements.addModal);
+        });
     });
 
     // Close modals
@@ -4278,11 +4330,20 @@ function setupEventListeners() {
         elements.sidebar.classList.toggle('open');
     });
 
-    // Home editorial top bar — burger + avatar + "+ NEW" band
+    // Home editorial top bar — burger swaps to back-arrow when in a folder
     const homeMenuBtn = document.getElementById('homeMenuBtn');
     const homeAvatarBtn = document.getElementById('homeAvatarBtn');
     const rbNewRecipeBtn = document.getElementById('rbNewRecipeBtn');
-    homeMenuBtn?.addEventListener('click', openDrawer);
+    homeMenuBtn?.addEventListener('click', () => {
+        if (homeMenuBtn.dataset.nav === 'back') {
+            currentFolderId = 'all';
+            renderFoldersList();
+            renderRecipeGrid('');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            openDrawer();
+        }
+    });
     homeAvatarBtn?.addEventListener('click', openDrawer);
     rbNewRecipeBtn?.addEventListener('click', () => {
         elements.addRecipeBtn?.click();
@@ -4592,6 +4653,9 @@ function init() {
 
     // Setup event listeners
     setupEventListeners();
+
+    // Install the swipe-back gesture once so it's ready for any nav
+    try { rbInstallEdgeSwipe(); } catch (e) { console.warn('swipe-back install:', e); }
 
     // Show login screen by default (Firebase auth will handle showing app)
     showLoginScreen();
