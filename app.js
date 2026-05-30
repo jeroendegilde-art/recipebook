@@ -2006,6 +2006,9 @@ function renderFoldersList() {
 
     elements.foldersList.innerHTML = html;
 
+    // Keep the editorial drawer in sync (it has its own COLLECTIONS list)
+    try { renderDrawer(); } catch (_) {}
+
     // Toggle button
     document.getElementById('folderReorderToggle')?.addEventListener('click', () => {
         folderReorderMode = !folderReorderMode;
@@ -2066,7 +2069,7 @@ function openEditFolderModal(folderId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
 
-    elements.folderModalTitle.textContent = 'Edit Folder';
+    elements.folderModalTitle.textContent = 'Edit collection';
     elements.folderNameInput.value = folder.name;
     elements.folderNameInput.dataset.editId = folderId;
     elements.deleteFolderBtn.style.display = 'block';
@@ -2292,6 +2295,9 @@ function setupFoldersListener() {
             saveFolders();
             renderFoldersList();
             updateFolderSelects();
+            // Also refresh the editorial drawer + home grid so the new collections show up
+            try { renderDrawer(); } catch (_) {}
+            try { renderRecipeGrid(elements.homeSearchInput?.value || ''); } catch (_) {}
         }, (error) => {
             console.error('Folders listener error:', error);
         });
@@ -3435,7 +3441,7 @@ function setupEventListeners() {
 
     // Add folder button
     elements.addFolderBtn?.addEventListener('click', () => {
-        elements.folderModalTitle.textContent = 'New Folder';
+        elements.folderModalTitle.textContent = 'New collection';
         elements.folderNameInput.value = '';
         elements.folderNameInput.dataset.editId = '';
         elements.deleteFolderBtn.style.display = 'none';
@@ -3745,7 +3751,7 @@ function setupEventListeners() {
         const folderIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>`;
         const noFolderIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M18 6L6 18M6 6l12 12"></path></svg>`;
 
-        let html = `<button class="rb-folder-menu-item ${!recipe.folderId ? 'on' : ''}" data-folder-id="">${noFolderIcon} No folder</button>`;
+        let html = `<button class="rb-folder-menu-item ${!recipe.folderId ? 'on' : ''}" data-folder-id="">${noFolderIcon} No collection</button>`;
         folders.forEach(f => {
             html += `<button class="rb-folder-menu-item ${recipe.folderId === f.id ? 'on' : ''}" data-folder-id="${escapeHtml(f.id)}">${folderIcon} ${escapeHtml(f.name)}</button>`;
         });
@@ -3763,7 +3769,7 @@ function setupEventListeners() {
                 elements.folderPickerBtn.classList.remove('active');
                 // Refresh the open detail (kicker + chip)
                 if (currentRecipeId) selectRecipe(currentRecipeId);
-                showToast(folderId ? `Moved to ${folders.find(f => f.id === folderId)?.name}` : 'Removed from folder');
+                showToast(folderId ? `Moved to ${folders.find(f => f.id === folderId)?.name}` : 'Removed from collection');
             });
         });
     });
@@ -4308,6 +4314,11 @@ function setupEventListeners() {
     });
     document.getElementById('rbDrawerProfile')?.addEventListener('click', () => {
         closeDrawer(); setTimeout(() => elements.profileBtn?.click(), 180);
+    });
+    document.getElementById('rbDrawerAddFolder')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Reuse the existing add-folder flow so all wiring (Firebase, modal) just works
+        elements.addFolderBtn?.click();
     });
 
     // Topbar wordmark fades in only once the big masthead has scrolled off

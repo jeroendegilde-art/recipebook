@@ -2383,7 +2383,14 @@ input:focus, textarea:focus, select:focus {
 }
 .rb-folder.reorder-on { cursor: grab; user-select: none; }
 .rb-folder.reorder-on:active { cursor: grabbing; }
-[data-reorder="on"] .rb-folder { animation: rbWiggle 0.45s ease infinite alternate; }
+/* Reorder mode: collapse to a single column so drag-to-reorder
+   resolves drop positions correctly (drops in a 2-col grid get ambiguous). */
+.rb-folders[data-reorder="on"] {
+    grid-template-columns: 1fr;
+}
+.rb-folders[data-reorder="on"] .rb-folder {
+    animation: rbWiggle 0.45s ease infinite alternate;
+}
 @keyframes rbWiggle {
     from { transform: rotate(-0.3deg); }
     to   { transform: rotate(0.3deg); }
@@ -3310,6 +3317,19 @@ input:focus, textarea:focus, select:focus {
     color: var(--text-muted);
     padding: 0 6px 8px; margin-top: 18px;
 }
+.rb-menu-head-row {
+    display: flex; align-items: center; justify-content: space-between;
+}
+.rb-menu-add {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: none; border: 1px solid var(--border-color);
+    color: var(--accent);
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 4px 8px; border-radius: 4px; cursor: pointer;
+    text-transform: uppercase;
+    font-family: var(--font-body);
+}
+.rb-menu-add:hover { background: var(--bg-tertiary); }
 .rb-menu-group { display: flex; flex-direction: column; gap: 2px; }
 .rb-menu-row {
     display: flex; align-items: center; gap: 13px;
