@@ -2454,24 +2454,23 @@ function renderRecipeGrid(filter = '') {
 
     elements.recipeGrid.innerHTML = filteredRecipes.map(recipe => {
         const folder = folders.find(f => f.id === recipe.folderId);
-        const tile = generateRecipeTile(recipe);
+        const tile = generateRecipeTile(recipe, { variant: 'card' });
         const sub = [];
         if (recipe.servings) sub.push(escapeHtml(recipe.servings));
         sub.push(`${recipe.ingredients?.length || 0} ingredients`);
         if (folder) sub.push(escapeHtml(folder.name));
         return `
-            <button type="button" class="rb-row rb-press recipe-card" data-id="${recipe.id}">
-                <div class="rb-row-thumb">${tile}</div>
-                <div class="rb-row-body">
-                    <div class="rb-row-title">${escapeHtml(recipe.title)}</div>
-                    <div class="rb-row-sub">${sub.map((s, i) => i === 0 ? s : `<span class="rb-dot">·</span><span>${s}</span>`).join('')}</div>
+            <button type="button" class="rb-card rb-press recipe-card" data-id="${recipe.id}">
+                <div class="rb-card-media">
+                    ${tile}
+                    ${recipe.favorite ? `<span class="rb-card-fav">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.6l5.8-.8z"/></svg>
+                    </span>` : ''}
                 </div>
-                ${recipe.favorite ? `<span class="rb-row-star">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.6l5.8-.8z"/></svg>
-                </span>` : ''}
-                <span class="rb-row-chev">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
-                </span>
+                <div class="rb-card-body">
+                    <h3 class="rb-card-title">${escapeHtml(recipe.title)}</h3>
+                    <div class="rb-card-sub">${sub.map((s, i) => i === 0 ? `<span>${s}</span>` : `<span class="rb-dot">·</span><span>${s}</span>`).join('')}</div>
+                </div>
             </button>
         `;
     }).join('');
@@ -3758,6 +3757,22 @@ function setupEventListeners() {
         // Trigger the same flow as the existing add button
         elements.addRecipeBtn?.click();
     });
+
+    // Topbar wordmark fades in only once the big masthead has scrolled off
+    const rbTopbar = document.getElementById('rbTopbar');
+    const rbScrollHost = document.querySelector('.main-content') || document.documentElement;
+    function updateRbTopbar() {
+        if (!rbTopbar) return;
+        const head = document.querySelector('.rb-head');
+        if (!head) return;
+        const rect = head.getBoundingClientRect();
+        // Once the masthead's top edge passes ~30px below the top, show small wordmark
+        if (rect.bottom < 40) rbTopbar.classList.add('scrolled');
+        else rbTopbar.classList.remove('scrolled');
+    }
+    rbScrollHost.addEventListener('scroll', updateRbTopbar, { passive: true });
+    window.addEventListener('scroll', updateRbTopbar, { passive: true });
+    updateRbTopbar();
 
     // Theme toggle
     elements.toggleTheme.addEventListener('click', () => {

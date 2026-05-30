@@ -2491,3 +2491,417 @@ input:focus, textarea:focus, select:focus {
     border: 1px solid var(--border-color);
 }
 .recipe-grid .recipe-card.rb-row:hover { background: var(--bg-tertiary); }
+
+/* Topbar wordmark only shows once user scrolls past the masthead */
+.rb-topbar-wordmark {
+    display: inline-flex; align-items: center; gap: 8px;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(.32,.72,0,1);
+    pointer-events: none;
+}
+.rb-topbar.scrolled .rb-topbar-wordmark {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+
+/* Make the top bar sticky so the wordmark stays visible while scrolling */
+.recipe-home .rb-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: linear-gradient(180deg, rgba(0,0,0,0.92) 80%, rgba(0,0,0,0));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── Unify fonts: serif for all titles, sidebar included ── */
+.sidebar,
+.sidebar h1, .sidebar h2, .sidebar h3, .sidebar h4,
+.folders-header, .recipe-list, .recipe-item,
+.sidebar-brand-name, .sidebar-brand,
+.profile-name, .profile-btn,
+.folder-item, .folder-item-name,
+.recipe-list-item, .recipe-item-title {
+    font-family: var(--font-body);
+}
+.sidebar-brand-name,
+.profile-name,
+.folder-item,
+.folder-item-name,
+.recipe-item-title,
+.recipe-list-item-title,
+.recipe-list-item-name,
+.recipe-list .recipe-item,
+.empty-state h2,
+.modal-header h2 {
+    font-family: var(--font-display) !important;
+    font-style: italic;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+.folders-header,
+.section-label,
+.recipe-list-section-header {
+    font-family: var(--font-body);
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+/* Sidebar buttons: drop the blue avatar circle, match editorial */
+.profile-avatar {
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+.profile-avatar svg { color: var(--accent-ink); }
+
+/* + Add Recipe button in sidebar — coral pill */
+.sidebar .btn-primary,
+.sidebar #addRecipeBtn {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-radius: var(--radius);
+    font-family: var(--font-body);
+    font-weight: 600;
+}
+
+/* Folder item active: coral tinted */
+.folder-item.active {
+    background: color-mix(in oklab, var(--accent), transparent 86%);
+    color: var(--accent);
+    border-left: 2px solid var(--accent);
+}
+.folder-item.active .folder-count { color: var(--accent); }
+
+/* ── Image-led recipe card (full-width image on top, text below) ── */
+.recipe-grid { padding: 0 20px 32px; gap: 14px !important; }
+
+.rb-card {
+    display: block; width: 100%; cursor: pointer; text-align: left;
+    padding: 0; border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: transform 0.12s ease, border-color 0.15s;
+}
+.rb-card:hover { border-color: var(--border2); }
+.rb-card.rb-press:active { transform: scale(0.985); }
+
+.rb-card-media {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    background: #050505;
+    overflow: hidden;
+}
+.rb-card-media .rb-tile {
+    position: absolute; inset: 0;
+}
+.rb-card-media .rb-tile img {
+    object-position: center;
+}
+.rb-card-media .rb-tile-mono {
+    font-size: 220px !important;
+    opacity: 0.18 !important;
+    right: -20px !important;
+    top: -50px !important;
+}
+
+.rb-card-fav {
+    position: absolute; top: 12px; right: 12px; z-index: 3;
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
+    color: #d8b96f;
+}
+
+.rb-card-body {
+    padding: 14px 16px 16px;
+}
+.rb-card-title {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.15;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--text-primary);
+    margin: 0 0 4px;
+    text-wrap: balance;
+}
+.rb-card-sub {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--text-muted);
+    font-family: var(--font-body);
+    font-variant-numeric: tabular-nums;
+}
+.rb-card-sub .rb-dot { opacity: 0.5; }
+
+/* ───────────────────────────────────────────────────────── */
+/* ── Recipe Detail — editorial overrides ─────────────────  */
+/* ───────────────────────────────────────────────────────── */
+
+.recipe-detail {
+    padding: 0 !important;
+    max-width: none !important;
+    background: var(--bg-primary);
+}
+.back-to-grid {
+    position: absolute; top: 18px; left: 16px; z-index: 5;
+    width: 40px; height: 40px; padding: 0;
+    border-radius: 50%; border: none;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0;
+}
+.back-to-grid svg { width: 20px; height: 20px; margin: 0; }
+
+/* Hero image becomes a big 290px overlay-text hero */
+.recipe-image-wrap {
+    position: relative;
+    width: 100%;
+    height: 290px;
+    margin: 0 !important;
+    overflow: hidden;
+    background: #050505;
+}
+.recipe-image-wrap::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.92) 100%);
+    pointer-events: none;
+}
+.recipe-image {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+    display: block;
+}
+
+.recipe-header {
+    padding: 14px 20px 0 !important;
+    border: none !important;
+}
+.recipe-detail h1, #recipeTitle {
+    font-family: var(--font-display) !important;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 32px !important;
+    line-height: 1.04;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+    text-wrap: balance;
+}
+.recipe-source {
+    display: inline-block; margin-top: 4px;
+    font-size: 13px; color: var(--text-secondary);
+    font-family: var(--font-body);
+}
+
+/* Action toolbar — restyle the existing recipe-actions cluster */
+.recipe-actions {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 20px 0 !important;
+    margin: 0 !important;
+    border: none !important;
+}
+.recipe-actions .btn-icon,
+.recipe-actions .folder-picker-wrap > .btn-icon {
+    width: 44px; height: 44px; flex: 1; max-width: 56px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center;
+}
+.recipe-actions .btn-icon svg { width: 19px; height: 19px; }
+.recipe-actions .btn-favorite.active,
+.recipe-actions .btn-favorite[data-favorited="true"] {
+    color: #d8b96f;
+    border-color: color-mix(in oklab, #d8b96f, transparent 55%);
+    background: color-mix(in oklab, #d8b96f, transparent 86%);
+}
+.recipe-actions .btn-danger {
+    color: var(--danger);
+    border-color: color-mix(in oklab, var(--danger), transparent 55%);
+    background: color-mix(in oklab, var(--danger), transparent 86%);
+}
+
+/* Meta as chips row */
+.recipe-meta {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 16px 20px 4px !important;
+    border: none !important;
+    margin: 0 !important;
+}
+.recipe-meta-item {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px;
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    font-size: 12.5px; font-weight: 500; color: var(--text-secondary);
+}
+.recipe-meta-item svg { width: 14px; height: 14px; color: var(--accent); }
+
+/* Cooking mode button → coral */
+.cooking-mode-btn {
+    display: flex !important; align-items: center; justify-content: center; gap: 9px;
+    margin: 14px 20px 6px !important;
+    width: calc(100% - 40px) !important;
+    height: 50px !important;
+    border-radius: var(--radius) !important;
+    border: none !important;
+    background: var(--accent) !important;
+    color: var(--accent-ink) !important;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 16px;
+    font-weight: 600;
+}
+.cooking-mode-btn svg { width: 18px; height: 18px; }
+
+.recipe-content {
+    padding: 0 !important;
+}
+
+/* Sections */
+.ingredients-section,
+.instructions-section,
+.notes-section {
+    padding: 18px 20px 0 !important;
+}
+.ingredients-section h3,
+.instructions-section h3,
+.notes-section h3,
+.recipe-content h2 {
+    font-family: var(--font-display) !important;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 19px;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+/* Multiplier row */
+.multiplier-row {
+    display: inline-flex !important; gap: 4px;
+    padding: 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    margin-bottom: 12px;
+}
+.multiplier-btn {
+    border: none !important; background: none !important;
+    color: var(--text-muted);
+    font-size: 14px; font-weight: 600;
+    padding: 7px 14px !important;
+    border-radius: 3px !important;
+    min-width: 44px;
+    font-variant-numeric: tabular-nums;
+}
+.multiplier-btn.active {
+    background: var(--accent) !important;
+    color: var(--accent-ink) !important;
+}
+
+/* Ingredients list - editorial checkboxes */
+#ingredientsList {
+    list-style: none; padding: 0; margin: 0;
+}
+.ingredient-item {
+    display: flex !important; align-items: flex-start; gap: 13px;
+    padding: 13px 4px !important;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    background: none !important;
+    border-radius: 0 !important;
+    font-family: var(--font-body);
+}
+.ingredient-item:last-child { border-bottom: none; }
+.ingredient-item::before {
+    content: '';
+    width: 22px; height: 22px; flex-shrink: 0; margin-top: 1px;
+    border-radius: 3px;
+    border: 2px solid var(--border2);
+    transition: all 0.15s;
+}
+.ingredient-item.checked {
+    text-decoration: none !important;
+    color: var(--text-muted);
+}
+.ingredient-item.checked::before {
+    background: var(--accent);
+    border-color: var(--accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c0c08' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5L10 17l9-10'/%3E%3C/svg%3E");
+    background-size: 14px 14px;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+.ingredient-item.checked .ingredient-text {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+.ingredient-text {
+    flex: 1; font-size: 15.5px; line-height: 1.4;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+}
+
+/* Instructions — numbered steps */
+#instructionsList {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 18px;
+}
+.instruction-item {
+    display: flex !important; align-items: flex-start; gap: 14px;
+    padding: 0 !important;
+    background: none !important;
+    border: none !important;
+    counter-increment: step;
+    position: relative;
+}
+.instruction-item::before {
+    content: counter(step);
+    flex-shrink: 0;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 14px; font-weight: 700;
+    color: var(--accent);
+    background: color-mix(in oklab, var(--accent), transparent 88%);
+    border: 1px solid color-mix(in oklab, var(--accent), transparent 76%);
+}
+#instructionsList { counter-reset: step; }
+.instruction-text {
+    flex: 1;
+    font-size: 15.5px; line-height: 1.55;
+    color: var(--text-secondary);
+    padding-top: 3px;
+    text-wrap: pretty;
+    font-family: var(--font-body);
+}
+/* Old step number element hidden if present */
+.instruction-item .step-num { display: none !important; }
+
+/* Notes block */
+.notes-content,
+#recipeNotes {
+    font-size: 15px; line-height: 1.6;
+    color: var(--text-secondary);
+    padding: 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--accent);
+    font-family: var(--font-body);
+}

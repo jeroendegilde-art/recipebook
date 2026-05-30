@@ -192,15 +192,17 @@
             <!-- Recipe Grid (home view) -->
             <div class="recipe-home" id="recipeHome">
 
-                <!-- Editorial top bar -->
-                <div class="rb-topbar rb-anim" style="--d: 0ms">
+                <!-- Editorial top bar (wordmark fades in on scroll past masthead) -->
+                <div class="rb-topbar rb-anim" id="rbTopbar" style="--d: 0ms">
                     <button class="rb-burger rb-press" id="homeMenuBtn" aria-label="Menu">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M3 6h18M3 12h18M3 18h18"></path>
                         </svg>
                     </button>
-                    <span class="rb-wordmark">Recipe Book</span>
-                    <span class="rb-word-dot"></span>
+                    <span class="rb-topbar-wordmark" id="rbTopbarWordmark">
+                        <span class="rb-wordmark">Recipe Book</span>
+                        <span class="rb-word-dot"></span>
+                    </span>
                     <span class="rb-spacer"></span>
                     <button class="rb-avatar rb-press" id="homeAvatarBtn" title="Profile">N</button>
                 </div>
