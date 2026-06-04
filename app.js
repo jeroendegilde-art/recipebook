@@ -2592,7 +2592,17 @@ function renderRecipeGrid(filter = '') {
 
     // ---- Default home: hero + favs + folders + recent ----
     const favs = recipes.filter(r => r.favorite);
-    const hero = favs[0] || recipes[0];
+
+    // Tonight's pick: deterministic daily rotation across all recipes.
+    // Uses today's date as a seed so it changes at midnight but stays
+    // stable for the rest of the day. Any recipe can be picked.
+    const todaySeed = (() => {
+        const d = new Date();
+        return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    })();
+    const hero = recipes.length > 0
+        ? recipes[todaySeed % recipes.length]
+        : null;
     const recent = recipes.filter(r => r.id !== (hero && hero.id));
 
     // Hero
