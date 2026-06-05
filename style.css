@@ -3679,10 +3679,14 @@ input:focus, textarea:focus, select:focus {
     .app { display: block; }
     .main-content { margin-left: 240px !important; }
 
+    /* The recipe detail is position:fixed;inset:0 — it ignores margin-left,
+       so we must explicitly push its left edge past the sidebar. */
+    .rb-detail { left: 240px !important; }
+
     /* Hide burger — sidebar is always visible */
     .rb-topbar #homeMenuBtn { display: none; }
 
-    /* Send-to-Nook bar must clear the sidebar */
+    /* Send-to-Nook bar and any other fixed overlays must also clear the sidebar */
     .rb-send-bar { left: 240px; }
 }
 
@@ -3693,9 +3697,11 @@ input:focus, textarea:focus, select:focus {
     }
     .rb-drawer-top { padding-top: 32px; }
 
-    .main-content {
-        margin-left: 300px !important;
-    }
+    .main-content { margin-left: 300px !important; }
+
+    /* Shift the fixed detail panel to clear the wider sidebar */
+    .rb-detail { left: 300px !important; }
+
     /* Constrain and centre recipe content on large screens */
     .recipe-home,
     .recipe-detail#recipeDetail {
