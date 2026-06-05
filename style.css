@@ -3655,9 +3655,9 @@ input:focus, textarea:focus, select:focus {
     padding-top: 0 !important;
 }
 
-/* ---------- Desktop: pin the drawer as a persistent sidebar ---------- */
-@media (min-width: 1024px) {
-    /* Drawer stays open and locked in place */
+/* ---------- Persistent sidebar: tablet / landscape phone (768 px+) ---------- */
+@media (min-width: 768px) {
+    /* Pin the drawer; scrim and close button are no longer needed */
     .rb-drawer-root {
         position: static;
         pointer-events: auto;
@@ -3666,44 +3666,53 @@ input:focus, textarea:focus, select:focus {
     .rb-drawer {
         position: fixed;
         top: 0; bottom: 0; left: 0;
-        width: 300px; max-width: 300px;
+        width: 240px; max-width: 240px;
         transform: none !important;
         box-shadow: none;
         border-right: 1px solid var(--border-color);
         transition: none;
     }
-    .rb-drawer-top { padding-top: 32px; }
-    /* Close (×) becomes redundant when the drawer is pinned */
+    .rb-drawer-top { padding-top: 24px; }
     .rb-drawer-close { display: none; }
 
-    /* Push the main app content to make room for the sidebar */
-    .app {
-        display: block;
+    /* Push main content to the right of the sidebar */
+    .app { display: block; }
+    .main-content { margin-left: 240px !important; }
+
+    /* Hide burger — sidebar is always visible */
+    .rb-topbar #homeMenuBtn { display: none; }
+
+    /* Send-to-Nook bar must clear the sidebar */
+    .rb-send-bar { left: 240px; }
+}
+
+/* ---------- Desktop: widen sidebar to 300 px (1024 px+) ---------- */
+@media (min-width: 1024px) {
+    .rb-drawer {
+        width: 300px; max-width: 300px;
     }
+    .rb-drawer-top { padding-top: 32px; }
+
     .main-content {
         margin-left: 300px !important;
     }
+    /* Constrain and centre recipe content on large screens */
     .recipe-home,
     .recipe-detail#recipeDetail {
         max-width: 880px;
         margin-left: auto;
         margin-right: auto;
     }
-    /* Hide the in-home burger on desktop (the sidebar is always there) */
-    .rb-topbar #homeMenuBtn { display: none; }
     .rb-topbar { padding-left: 40px; padding-right: 40px; }
     .rb-head { padding-left: 40px !important; padding-right: 40px !important; }
     .rb-touched { padding-left: 40px !important; padding-right: 40px !important; }
     .rb-sec { margin-left: 40px; margin-right: 40px; }
     .rb-new-band { width: calc(100% - 80px); margin-left: 40px; margin-right: 40px; }
-    /* Detail hero stays edge-to-edge but inner sections breathe more */
     .rb-d-sec { padding-left: 40px; padding-right: 40px; }
     .rb-d-chips { padding-left: 40px; padding-right: 40px; }
     .rb-actions { padding-left: 40px; padding-right: 40px; }
     .rb-cook-btn { width: calc(100% - 80px); margin-left: 40px; margin-right: 40px; }
-    /* Send to Nook send-bar sits relative to its container, not viewport */
     .rb-send-bar { left: 300px; }
-    /* Edge-swipe is disabled on desktop (no touch screen) — clear inline transforms */
 }
 .recipe-home {
     padding: 0 !important;

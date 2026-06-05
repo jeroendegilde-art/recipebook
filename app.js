@@ -2916,11 +2916,17 @@ function rbInstallSmoothReorder(grid) {
 }
 
 // ---------- Editorial drawer ----------
+// Sidebar is persistent (CSS pinned) at ≥768 px.
+// Below that it slides in as an overlay and we lock body scroll.
+const SIDEBAR_BREAKPOINT = 768;
+
 function openDrawer() {
     renderDrawer();
     const root = document.getElementById('rbDrawerRoot');
     if (root) root.classList.add('open');
-    document.body.style.overflow = 'hidden';
+    if (window.innerWidth < SIDEBAR_BREAKPOINT) {
+        document.body.style.overflow = 'hidden';
+    }
 }
 function closeDrawer() {
     const root = document.getElementById('rbDrawerRoot');
