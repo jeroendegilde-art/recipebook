@@ -1,4 +1,4 @@
-const CACHE = 'recipebook-v20260530c';
+const CACHE = 'recipebook-v20260605a';
 
 const STATIC = [
     '/recipebook/',
