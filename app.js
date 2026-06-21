@@ -7,6 +7,12 @@ const API_KEY_STORAGE = 'recipeBookApiKey';
 const FOLDERS_STORAGE = 'recipeBookFolders';
 const NOOK_URL_STORAGE = 'recipeBookNookUrl';
 const NOOK_TOKEN_STORAGE = 'recipeBookNookToken';
+const MODEL_STORAGE = 'recipeBookModel';
+
+// Fallback model used before the live list loads, or if the Models API is
+// unreachable. Balanced vision model; the picker in Settings lets you choose
+// any model your account has access to.
+const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
 // State
 let recipes = [];
@@ -15,6 +21,7 @@ let currentRecipeId = null;
 let currentFolderId = 'all';
 let currentUser = null;
 let claudeApiKey = null;
+let selectedModel = null;
 let nookUrl = '';
 let nookToken = '';
 let firebaseReady = false;
@@ -111,6 +118,7 @@ const elements = {
     settingsModalBackdrop: document.getElementById('settingsModalBackdrop'),
     closeSettingsModalBtn: document.getElementById('closeSettingsModalBtn'),
     apiKeyInput: document.getElementById('apiKeyInput'),
+    modelSelect: document.getElementById('modelSelect'),
     nookUrlInput: document.getElementById('nookUrlInput'),
     nookTokenInput: document.getElementById('nookTokenInput'),
     saveSettingsBtn: document.getElementById('saveSettingsBtn'),
@@ -393,7 +401,7 @@ ${text.substring(0, 15000)}`;
                 'anthropic-dangerous-direct-browser-access': 'true'
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
+                model: getModel(),
                 max_tokens: 4096,
                 messages: [{
                     role: 'user',
@@ -490,6 +498,76 @@ function hasApiKey() {
 }
 
 // ============================================
+// Model selection
+// ============================================
+
+// The model used for every extraction call. Falls back to DEFAULT_MODEL until
+// the user picks one (or if the saved choice is somehow empty).
+function getModel() {
+    return selectedModel || localStorage.getItem(MODEL_STORAGE) || DEFAULT_MODEL;
+}
+
+// Populate the Settings model dropdown from the live Models API. Without a key
+// we can't fetch the list, so we just show the current/default value. Newest
+// models are returned first by the API, so the list never goes stale and
+// retired models simply drop off it.
+async function loadModelOptions() {
+    const sel = elements.modelSelect;
+    if (!sel) return;
+
+    const current = getModel();
+
+    const showSingle = (label) => {
+        sel.innerHTML = '';
+        const opt = document.createElement('option');
+        opt.value = current;
+        opt.textContent = label;
+        sel.appendChild(opt);
+        sel.value = current;
+    };
+
+    if (!claudeApiKey) {
+        showSingle(`${current} — add an API key to load the list`);
+        return;
+    }
+
+    try {
+        const res = await fetch('https://api.anthropic.com/v1/models?limit=100', {
+            headers: {
+                'x-api-key': claudeApiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            }
+        });
+        if (!res.ok) throw new Error(`Models API ${res.status}`);
+
+        const data = await res.json();
+        const models = data.data || [];
+        if (models.length === 0) { showSingle(current); return; }
+
+        sel.innerHTML = '';
+        models.forEach((m) => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.display_name || m.id;
+            sel.appendChild(opt);
+        });
+
+        // Keep the saved choice selectable even if it's no longer in the list.
+        if (current && !models.some((m) => m.id === current)) {
+            const opt = document.createElement('option');
+            opt.value = current;
+            opt.textContent = `${current} (saved — no longer offered)`;
+            sel.appendChild(opt);
+        }
+        sel.value = current;
+    } catch (err) {
+        console.error('Could not load model list:', err);
+        showSingle(current);
+    }
+}
+
+// ============================================
 // Camera/Photo Recipe Extraction
 // ============================================
 
@@ -550,7 +628,7 @@ IMPORTANT RULES:
                 'anthropic-dangerous-direct-browser-access': 'true'
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
+                model: getModel(),
                 max_tokens: 4096,
                 messages: [{
                     role: 'user',
@@ -676,7 +754,7 @@ ${text}`;
             'anthropic-dangerous-direct-browser-access': 'true'
         },
         body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
+            model: getModel(),
             max_tokens: 8192,
             messages: [{ role: 'user', content: prompt }]
         })
@@ -2164,6 +2242,22 @@ async function saveNookSettingsToFirebase(url, token) {
     }
 }
 
+// Save selected extraction model to Firebase user settings (same doc, merged)
+async function saveModelToFirebase(model) {
+    if (!currentUser || !window.firebaseDb) return;
+
+    try {
+        const docRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid, 'settings', 'apiKey');
+        await window.firebaseSetDoc(docRef, {
+            model: model || '',
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log('Model preference saved to Firebase');
+    } catch (error) {
+        console.error('Error saving model to Firebase:', error);
+    }
+}
+
 // Load all user settings from Firebase (API key + Nook config) on auth-ready
 function setupUserSettingsListener() {
     if (!currentUser || !window.firebaseDb) return;
@@ -2197,6 +2291,11 @@ function setupUserSettingsListener() {
                     if (elements.nookTokenInput) {
                         elements.nookTokenInput.value = nookToken;
                     }
+                }
+                if (typeof data.model === 'string' && data.model) {
+                    selectedModel = data.model;
+                    localStorage.setItem(MODEL_STORAGE, selectedModel);
+                    console.log('Model preference loaded from Firebase');
                 }
             }
         }, (error) => {
@@ -3580,6 +3679,8 @@ function setupEventListeners() {
         // Populate Nook fields
         if (elements.nookUrlInput) elements.nookUrlInput.value = nookUrl || '';
         if (elements.nookTokenInput) elements.nookTokenInput.value = nookToken || '';
+        // Populate the model picker from the live Models API
+        loadModelOptions();
         openModal(elements.settingsModal);
     });
 
@@ -3624,6 +3725,14 @@ function setupEventListeners() {
         else localStorage.removeItem(NOOK_TOKEN_STORAGE);
         await saveNookSettingsToFirebase(newNookUrl, newNookToken);
 
+        // Save selected extraction model — local + Firebase, so it syncs too
+        const chosenModel = (elements.modelSelect?.value || '').trim();
+        if (chosenModel) {
+            selectedModel = chosenModel;
+            localStorage.setItem(MODEL_STORAGE, chosenModel);
+            await saveModelToFirebase(chosenModel);
+        }
+
         setTimeout(() => closeModal(elements.settingsModal), 1000);
     });
 
@@ -3650,7 +3759,7 @@ function setupEventListeners() {
                     'anthropic-dangerous-direct-browser-access': 'true'
                 },
                 body: JSON.stringify({
-                    model: 'claude-sonnet-4-20250514',
+                    model: getModel(),
                     max_tokens: 10,
                     messages: [{
                         role: 'user',
@@ -4714,6 +4823,9 @@ function init() {
 
     // Load API key from local storage (will be overwritten by Firebase if logged in)
     claudeApiKey = localStorage.getItem(API_KEY_STORAGE);
+
+    // Load saved extraction model (Firebase may override it when logged in)
+    selectedModel = localStorage.getItem(MODEL_STORAGE);
 
     // Load Nook settings from local storage
     nookUrl = localStorage.getItem(NOOK_URL_STORAGE) || '';
