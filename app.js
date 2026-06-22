@@ -350,146 +350,160 @@ function scaleIngredient(text, factor) {
 // Claude API Recipe Extraction
 // ============================================
 
-async function extractRecipeWithClaude(text, sourceUrl = '') {
+// Shared metric-conversion rules. The MODEL does the conversion — it knows the
+// density of each ingredient, which a regex never can (a cup of oats is ~90g, a
+// cup of soy milk is 240ml). This is why convertToMetric() is NOT run on model
+// output anymore.
+const METRIC_RULES = `CONVERT EVERY MEASUREMENT TO METRIC using real culinary knowledge of the specific ingredient. This is the single most important rule — get it right per ingredient.
+
+- LIQUIDS (water, milk, plant milks, oil, vinegar, juice, stock/broth, wine, cream, melted butter, maple syrup, honey) → millilitres (ml).
+  1 cup = 240 ml · ¾ cup = 180 ml · ⅔ cup = 160 ml · ½ cup = 120 ml · ⅓ cup = 80 ml · ¼ cup = 60 ml · 1 fl oz = 30 ml
+- DRY / SOLID ingredients measured by volume (flour, oats, sugar, rice, nuts, seeds, chocolate, cocoa, fruit, berries, grated or shredded foods, breadcrumbs, etc.) → GRAMS (g) BY WEIGHT. A cup is a volume, so weigh it: use that specific ingredient's real density. NEVER treat a cup of a dry good as 240 g, and NEVER express a dry good in ml.
+  Approx. weight of 1 cup: all-purpose flour ≈ 125 g · rolled oats ≈ 90 g · granulated sugar ≈ 200 g · packed brown sugar ≈ 220 g · uncooked rice ≈ 185 g · chopped nuts ≈ 120 g · chocolate chips ≈ 170 g · fresh raspberries or blueberries ≈ 125 g · grated cheese ≈ 100 g · cocoa powder ≈ 85 g. Scale proportionally (so ½ cup rolled oats ≈ 45 g, ½ cup raspberries ≈ 60 g).
+- IMPERIAL WEIGHT (oz, lb) → grams (1 oz ≈ 28 g, 1 lb ≈ 454 g).
+- Oven TEMPERATURES °F → °C, rounded to the nearest 5°. LENGTHS in inches → cm.
+- KEEP AS WRITTEN (do NOT convert): teaspoons (tsp) and tablespoons (Tbsp) of seasonings, spices, leaveners, extracts and other small amounts; whole-item counts ("2 eggs", "1 onion", "1 clove garlic"); and vague amounts ("a pinch", "to taste").
+- If the source already gives a metric weight or volume, keep it.
+- ALWAYS write the metric value first with the original in parentheses, and never drop the ingredient name. e.g. "45 g rolled oats (½ cup)" · "120 ml soy milk (½ cup)" · "180 °C (350 °F)".`;
+
+// Shared structure/completeness rules.
+const STRUCTURE_RULES = `INGREDIENTS: one per array item, each as "<amount> <ingredient>" on a single line. Keep section headers ("For the sauce:") as their own item if the source groups ingredients.
+
+METHOD / INSTRUCTIONS — MANDATORY. Never return an empty instructions list if the source describes how to make the dish. If the page seems to hide the method, reconstruct it from any step text you can find.
+- Each array item = exactly ONE action (one verb / one phase). Never merge two actions.
+- If the source numbers the steps, keep each as its own item. If it's one paragraph, split at action boundaries ("then", "meanwhile", a new heat level, a new ingredient group).
+- Strip leading numbers and bullets — keep just the instruction prose.
+- Keep times and temperatures inside the step text (temperatures converted to °C).
+
+SERVINGS: capture the yield ("serves 4", "makes 12 cookies") as a short string; use "" only if truly absent.
+NOTES: short tips, storage or serving suggestions only — no life stories, ads, or comments.
+
+Set "found" to false only if there is no real recipe in the content.`;
+
+// JSON Schema for structured output — guarantees parseable JSON from the model.
+const RECIPE_SCHEMA = {
+    type: 'object',
+    properties: {
+        found: { type: 'boolean' },
+        title: { type: 'string' },
+        servings: { type: 'string' },
+        ingredients: { type: 'array', items: { type: 'string' } },
+        instructions: { type: 'array', items: { type: 'string' } },
+        notes: { type: 'string' }
+    },
+    required: ['found', 'title', 'servings', 'ingredients', 'instructions', 'notes'],
+    additionalProperties: false
+};
+
+// Lenient JSON parse — structured output returns clean JSON, but tolerate fences
+// or stray prose just in case (e.g. a model that ignored output_config).
+function parseRecipeJson(content) {
+    try { return JSON.parse(content); } catch (_) {}
+    const fence = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fence) { try { return JSON.parse(fence[1]); } catch (_) {} }
+    const start = content.indexOf('{');
+    const end = content.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+        try { return JSON.parse(content.slice(start, end + 1)); } catch (_) {}
+    }
+    throw new Error('Could not parse the recipe from the response.');
+}
+
+// Single reliable entry point for every model-backed extraction (URL text and
+// photos). Handles structured output, generous max_tokens, a timeout, and one
+// automatic retry so a transient hiccup doesn't force the user to re-run.
+// `userContent` is the messages[0].content value: a string (text) or an array
+// (image blocks + a text block).
+async function callClaudeRecipe(userContent) {
     if (!claudeApiKey) {
         throw new Error('Please add your Claude API key in Settings first');
     }
 
-    const prompt = `Extract the recipe from this text. Ignore all website navigation, ads, blog content, life stories, and other non-recipe content. Focus ONLY on the actual recipe.
+    let lastError;
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-Return a JSON object with exactly this structure:
-{
-  "title": "Recipe Name",
-  "servings": "4 servings",
-  "ingredients": ["ingredient 1", "ingredient 2"],
-  "instructions": ["step 1", "step 2"],
-  "notes": "any tips or notes"
+        try {
+            const body = {
+                model: getModel(),
+                max_tokens: 8192,
+                messages: [{ role: 'user', content: userContent }]
+            };
+            // Ask for guaranteed-valid JSON on the first attempt. If the chosen
+            // model rejects it (400), the retry below drops it and parses leniently.
+            if (attempt === 0) {
+                body.output_config = { format: { type: 'json_schema', schema: RECIPE_SCHEMA } };
+            }
+
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': claudeApiKey,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify(body),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Claude API error:', response.status, errorData);
+
+                // Non-retryable — surface immediately.
+                if (response.status === 401) throw new Error('Invalid API key. Please check it in Settings.');
+                if (response.status === 403) throw new Error('API access forbidden — enable "browser access" on your key in the Anthropic Console.');
+
+                // Retryable: rate limit, server error, or a 400 likely caused by a
+                // model that doesn't support structured output (retry drops it).
+                lastError = new Error(errorData.error?.message || `API error: ${response.status}`);
+                if (response.status === 429) await new Promise(r => setTimeout(r, 1500));
+                continue;
+            }
+
+            const data = await response.json();
+            const content = data.content?.[0]?.text;
+            if (!content) { lastError = new Error('Empty response from Claude API'); continue; }
+
+            const recipe = parseRecipeJson(content);
+            if (recipe.found === false) {
+                throw new Error('No recipe found in that content.');
+            }
+
+            return {
+                title: recipe.title || 'Untitled Recipe',
+                servings: recipe.servings || '',
+                ingredients: (recipe.ingredients || []).filter(Boolean),
+                instructions: (recipe.instructions || []).filter(Boolean),
+                notes: recipe.notes || ''
+            };
+
+        } catch (error) {
+            clearTimeout(timeoutId);
+            // Don't retry user-actionable errors.
+            if (/Invalid API key|forbidden|No recipe found/.test(error.message)) throw error;
+            lastError = error.name === 'AbortError' ? new Error('Request timed out.') : error;
+        }
+    }
+
+    throw lastError || new Error('Extraction failed. Please try again.');
 }
 
-IMPORTANT RULES:
-1. Extract ALL measurements EXACTLY as written in the source — do NOT convert any units. Copy numbers and units verbatim (e.g. keep "1 cup", "2 oz", "350°F", "1 inch", "1 tsp" exactly as-is).
-2. Each ingredient should be a single line with quantity and item.
-3. INSTRUCTIONS — split into individual, clearly separated steps:
-   - Each array item = exactly ONE cooking action (mix, bake, chop, fry, rest, etc.)
-   - If the source already has numbered/lettered steps, keep each as its own item — never merge them
-   - If steps are written as a long paragraph, split at logical action boundaries (new verb, new phase, change of heat, adding new ingredient group, time marker like "meanwhile" or "then")
-   - Never combine two distinct actions into one step
-   - Keep each step self-contained and clear
-   - Typical recipes have 6–15 steps; very simple ones may have fewer
-4. Remove any step numbers or bullets from the instruction text (just the prose).
-5. CRITICAL: Extract the servings/yield - look for "serves X", "makes X", "X servings", "X portions", "yield: X", "for X people". Format as "X servings" or "Makes X cookies" etc.
-6. If servings is not explicitly stated, try to infer from context or use "".
-7. Ignore prep time, cook time, ratings, comments, author info.
-8. If you can't find a valid recipe, return {"error": "No recipe found"}.
-9. Return ONLY the JSON object, no other text.
+async function extractRecipeWithClaude(text, sourceUrl = '') {
+    const prompt = `You are extracting a single recipe from the web-page content below. Ignore navigation, ads, comments, author bios, personal stories, newsletter prompts and any other non-recipe text. Capture the COMPLETE recipe — every ingredient and every method step. Dropping steps or ingredients is a failure.
 
-TEXT TO EXTRACT FROM:
-${text.substring(0, 15000)}`;
+${METRIC_RULES}
 
-    try {
-        console.log('Calling Claude API...');
+${STRUCTURE_RULES}
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+CONTENT:
+${text.substring(0, 16000)}`;
 
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': claudeApiKey,
-                'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-direct-browser-access': 'true'
-            },
-            body: JSON.stringify({
-                model: getModel(),
-                max_tokens: 4096,
-                messages: [{
-                    role: 'user',
-                    content: prompt
-                }]
-            }),
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Claude API error response:', response.status, errorData);
-
-            if (response.status === 401) {
-                throw new Error('Invalid API key. Please check your Claude API key in Settings.');
-            }
-            if (response.status === 403) {
-                throw new Error('API access forbidden. Make sure your API key has browser access enabled in the Anthropic Console.');
-            }
-            if (response.status === 429) {
-                throw new Error('Rate limit exceeded. Please wait a moment and try again.');
-            }
-            if (response.status === 500 || response.status === 502 || response.status === 503) {
-                throw new Error('Claude API is temporarily unavailable. Please try again later.');
-            }
-
-            const errorMsg = errorData.error?.message || `API error: ${response.status}`;
-            throw new Error(errorMsg);
-        }
-
-        const data = await response.json();
-        console.log('Claude API response received');
-
-        if (!data.content || !data.content[0] || !data.content[0].text) {
-            throw new Error('Invalid response from Claude API');
-        }
-
-        const content = data.content[0].text;
-
-        // Parse JSON — strip markdown code fences if Claude wrapped it
-        let jsonStr;
-        const codeBlock = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-        if (codeBlock) {
-            jsonStr = codeBlock[1];
-        } else {
-            // Find the outermost { ... } block
-            const start = content.indexOf('{');
-            const end = content.lastIndexOf('}');
-            if (start === -1 || end === -1 || end <= start) {
-                console.error('Could not find JSON in response:', content);
-                throw new Error('Could not parse recipe from response');
-            }
-            jsonStr = content.slice(start, end + 1);
-        }
-
-        const recipe = JSON.parse(jsonStr);
-
-        if (recipe.error) {
-            throw new Error(recipe.error);
-        }
-
-        const ingredients = (recipe.ingredients || []).map(convertToMetric);
-        const instructions = (recipe.instructions || []).map(convertToMetric);
-
-        return {
-            title: recipe.title || 'Untitled Recipe',
-            servings: recipe.servings || '',
-            ingredients,
-            instructions,
-            source: sourceUrl,
-            notes: recipe.notes || ''
-        };
-
-    } catch (error) {
-        console.error('Claude API error:', error);
-
-        // Provide more helpful error messages
-        if (error.name === 'AbortError') {
-            throw new Error('Request timed out. Please try again.');
-        }
-        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-            throw new Error('Could not connect to Claude API. This may be a CORS issue - browser direct access must be enabled on your API key.');
-        }
-
-        throw error;
-    }
+    const recipe = await callClaudeRecipe(prompt);
+    return { ...recipe, source: sourceUrl };
 }
 
 // Check if API key is configured
@@ -592,83 +606,14 @@ async function extractRecipeFromPhotos(photos) {
         };
     }));
 
-    const prompt = `Look at these recipe photo(s) and extract the complete recipe. The photos may show one or multiple pages of the same recipe.
+    const prompt = `Read the recipe in these photo(s) and extract it COMPLETELY — every ingredient and every method step. The photos may be multiple pages of the SAME recipe; combine them into one. If text is hard to read, interpret it as best you can rather than dropping it.
 
-Return a JSON object with exactly this structure:
-{
-  "title": "Recipe Name",
-  "servings": "4 servings",
-  "ingredients": ["ingredient 1", "ingredient 2"],
-  "instructions": ["step 1", "step 2"],
-  "notes": "any tips or notes"
-}
+${METRIC_RULES}
 
-IMPORTANT RULES:
-1. Extract ALL measurements EXACTLY as written in the source — do NOT convert any units. Copy numbers and units verbatim (e.g. keep "1 cup", "2 oz", "350°F", "1 inch", "1 tsp" exactly as-is).
-2. Each ingredient should be a single line with quantity and item.
-3. INSTRUCTIONS — split into individual, clearly separated steps:
-   - Each array item = exactly ONE cooking action
-   - Never merge two distinct actions into one step
-   - Split at logical boundaries: new verb, new phase, change of heat, time marker like "meanwhile"
-4. Remove any step numbers or bullets from the instruction text (just the prose).
-5. Extract the servings/yield if shown.
-6. Combine information from all photos into one complete recipe.
-7. If you can't read parts clearly, do your best to interpret them.
-8. Return ONLY the JSON object, no other text.`;
+${STRUCTURE_RULES}`;
 
-    try {
-        console.log('Sending photos to Claude API...');
-
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': claudeApiKey,
-                'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-direct-browser-access': 'true'
-            },
-            body: JSON.stringify({
-                model: getModel(),
-                max_tokens: 4096,
-                messages: [{
-                    role: 'user',
-                    content: [
-                        ...imageContents,
-                        { type: 'text', text: prompt }
-                    ]
-                }]
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error?.message || `API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const content = data.content[0].text;
-
-        // Parse the JSON from Claude's response
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            throw new Error('Could not parse recipe from photos');
-        }
-
-        const recipe = JSON.parse(jsonMatch[0]);
-
-        return {
-            title: recipe.title || 'Untitled Recipe',
-            servings: recipe.servings || '',
-            ingredients: recipe.ingredients || [],
-            instructions: recipe.instructions || [],
-            notes: recipe.notes || '',
-            source: ''
-        };
-
-    } catch (error) {
-        console.error('Photo extraction error:', error);
-        throw error;
-    }
+    const recipe = await callClaudeRecipe([...imageContents, { type: 'text', text: prompt }]);
+    return { ...recipe, source: '' };
 }
 
 // ============================================
@@ -1034,84 +979,66 @@ async function fetchWithProxy(url) {
 }
 
 async function fetchRecipeFromUrl(url) {
+    // Only the network fetch should be reported as a CORS/proxy failure.
+    // Extraction errors (bad key, no recipe, etc.) must surface to the user as-is.
+    let html;
     try {
-        const html = await fetchWithProxy(url);
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-
-        // Try to find recipe data
-        let recipe = {
-            title: '',
-            ingredients: [],
-            instructions: [],
-            source: url,
-            notes: ''
-        };
-
-        // Try JSON-LD first (many recipe sites use this)
-        const jsonLdScripts = doc.querySelectorAll('script[type="application/ld+json"]');
-        for (const script of jsonLdScripts) {
-            try {
-                const data = JSON.parse(script.textContent);
-                const recipeData = findRecipeInJsonLd(data);
-                if (recipeData) {
-                    recipe = parseJsonLdRecipe(recipeData, url);
-                    break;
-                }
-            } catch (e) {
-                // Continue to next script or fallback
-            }
-        }
-
-        // If JSON-LD didn't work, try heuristic parsing
-        if (!recipe.title || recipe.ingredients.length === 0) {
-            recipe = parseRecipeHeuristically(doc, url);
-        }
-
-        // If both structured methods failed, fall back to Claude (handles Substack, JS-heavy sites, prose recipes)
-        if (hasApiKey() && (!recipe.title || recipe.ingredients.length === 0)) {
-            const textContent = extractCleanText(doc);
-            if (textContent.length > 100) {
-                const claudeRecipe = await extractRecipeWithClaude(textContent, url);
-                const ogImg = doc.querySelector('meta[property="og:image"]');
-                if (ogImg) {
-                    const imgSrc = ogImg.getAttribute('content') || '';
-                    try { claudeRecipe.image = imgSrc ? new URL(imgSrc, url).href : ''; }
-                    catch (e) { claudeRecipe.image = imgSrc; }
-                }
-                return claudeRecipe;
-            }
-        }
-
-        // Fallback image from og:image if not already extracted from JSON-LD
-        if (!recipe.image) {
-            const ogImg = doc.querySelector('meta[property="og:image"]');
-            if (ogImg) {
-                const imgSrc = ogImg.getAttribute('content') || '';
-                // Resolve relative URLs against the source page
-                try {
-                    recipe.image = imgSrc ? new URL(imgSrc, url).href : '';
-                } catch (e) {
-                    recipe.image = imgSrc;
-                }
-                console.log('[Image] og:image fallback:', recipe.image?.substring(0, 100));
-            } else {
-                console.log('[Image] No og:image meta tag found');
-            }
-        }
-
-        console.log('[Image] Final recipe.image before return:', recipe.image?.substring(0, 100));
-
-        // Convert to metric
-        recipe.ingredients = recipe.ingredients.map(convertToMetric);
-        recipe.instructions = recipe.instructions.map(convertToMetric);
-
-        return recipe;
-
+        html = await fetchWithProxy(url);
     } catch (error) {
-        console.error('Error fetching recipe:', error);
+        console.error('Error fetching recipe page:', error);
         throw new Error('Could not fetch recipe. CORS proxies may be unavailable. Try the manual input instead.');
     }
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    // Parse JSON-LD — used for the image always, and as the recipe source when
+    // there's no API key.
+    let jsonLdRecipe = null;
+    for (const script of doc.querySelectorAll('script[type="application/ld+json"]')) {
+        try {
+            const recipeData = findRecipeInJsonLd(JSON.parse(script.textContent));
+            if (recipeData) { jsonLdRecipe = parseJsonLdRecipe(recipeData, url); break; }
+        } catch (e) { /* try next script */ }
+    }
+
+    // Best available image (JSON-LD, then og:image), resolved to an absolute URL.
+    let image = (jsonLdRecipe && jsonLdRecipe.image) || '';
+    if (!image) {
+        const ogImg = doc.querySelector('meta[property="og:image"]');
+        const imgSrc = ogImg?.getAttribute('content') || '';
+        try { image = imgSrc ? new URL(imgSrc, url).href : ''; } catch (e) { image = imgSrc; }
+    }
+
+    // WITH A KEY: always normalize through the model. This is the rock-solid path
+    // — correct per-ingredient metric conversion, complete method capture, and a
+    // built-in retry. We feed it the cleaned page text PLUS any structured data
+    // the page exposed, so nothing (like the method) gets silently dropped.
+    if (hasApiKey()) {
+        let content = extractCleanText(doc);
+        if (jsonLdRecipe && (jsonLdRecipe.ingredients.length || jsonLdRecipe.instructions.length)) {
+            content += '\n\n--- STRUCTURED RECIPE DATA FROM THE PAGE ---\n';
+            if (jsonLdRecipe.title) content += `Title: ${jsonLdRecipe.title}\n`;
+            if (jsonLdRecipe.ingredients.length) content += `Ingredients:\n${jsonLdRecipe.ingredients.join('\n')}\n`;
+            if (jsonLdRecipe.instructions.length) content += `Method:\n${jsonLdRecipe.instructions.join('\n')}\n`;
+            if (jsonLdRecipe.notes) content += `Notes: ${jsonLdRecipe.notes}\n`;
+        }
+        if (content.trim().length > 60) {
+            const claudeRecipe = await extractRecipeWithClaude(content, url);
+            claudeRecipe.image = image;
+            return claudeRecipe;
+        }
+    }
+
+    // NO KEY (or no usable text): structured/heuristic parse + the light regex
+    // converter. Note: without a model this can't tell dry from liquid, so volume
+    // conversions stay approximate — add an API key for accurate metric.
+    let recipe = (jsonLdRecipe && jsonLdRecipe.ingredients.length)
+        ? jsonLdRecipe
+        : parseRecipeHeuristically(doc, url);
+    recipe.image = recipe.image || image;
+    recipe.ingredients = (recipe.ingredients || []).map(convertToMetric);
+    recipe.instructions = (recipe.instructions || []).map(convertToMetric);
+    return recipe;
 }
 
 function findRecipeInJsonLd(data) {
