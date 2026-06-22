@@ -3910,6 +3910,9 @@ function setupEventListeners() {
     elements.rescanRecipeBtn.addEventListener('click', async () => {
         const recipe = getRecipe(currentRecipeId);
         if (!recipe) return;
+        // Pin the target id now — currentRecipeId can change (or reset to null)
+        // if the user navigates away while the async extraction is running.
+        const recipeId = recipe.id;
 
         if (!claudeApiKey) {
             showToast('Add your Claude API key in Settings first', 'error');
@@ -3949,7 +3952,7 @@ function setupEventListeners() {
             const recipeData = await extractRecipeWithClaude(text, recipe.source || '');
 
             // Preserve id, folderId, createdAt, source, and existing image if rescan didn't get one
-            updateRecipe(currentRecipeId, {
+            updateRecipe(recipeId, {
                 title: recipeData.title || recipe.title,
                 ingredients: recipeData.ingredients,
                 instructions: recipeData.instructions,
@@ -3959,7 +3962,8 @@ function setupEventListeners() {
             });
 
             renderRecipeList();
-            selectRecipe(currentRecipeId);
+            // Only refresh the detail view if the user is still on this recipe.
+            if (currentRecipeId === recipeId) selectRecipe(recipeId);
             showToast('Recipe updated!');
 
         } catch (error) {
