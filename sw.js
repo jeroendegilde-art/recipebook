@@ -1,10 +1,12 @@
-const CACHE = 'recipebook-v20260621d';
+const CACHE = 'recipebook-v20260630a';
 
 const STATIC = [
     '/recipebook/',
     '/recipebook/index.html',
     '/recipebook/style.css',
+    '/recipebook/splash.css',
     '/recipebook/app.js',
+    '/recipebook/splash.js',
     '/recipebook/logo.svg',
     '/recipebook/manifest.json',
     '/recipebook/icons/favicon.ico',

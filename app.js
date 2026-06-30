@@ -4811,15 +4811,20 @@ window.addEventListener('firebase-ready', () => {
 
                 // Show hint about API key if not set
                 showApiKeyHint();
+
+                // Initial boot/auth/recipe-load is done — reveal the app
+                window.recipeSplash?.ready();
             } else {
                 console.log('User signed out');
                 // Login screen is shown by updateAuthUI
+                window.recipeSplash?.ready();
             }
         });
     } else {
         // No auth available - still require login
         console.log('Auth not available');
         showLoginScreen();
+        window.recipeSplash?.ready();
     }
 });
 
@@ -4828,5 +4833,6 @@ setTimeout(() => {
     if (!firebaseReady) {
         console.log('Firebase connection timeout, running in offline mode');
         updateSyncStatus(false, 'Offline mode');
+        window.recipeSplash?.ready();
     }
 }, 5000);
