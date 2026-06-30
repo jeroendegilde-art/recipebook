@@ -16,9 +16,16 @@
  *
  * Demo / fallback: if nothing calls ready() within AUTO_REVEAL_MS, it reveals
  * on its own so the user never gets stuck on the loader.
+ *
+ * Calls made before this script's own init() has run (e.g. a fast-resolving
+ * cached auth session calling ready() before DOMContentLoaded, since the
+ * Firebase module script that triggers it runs before DOMContentLoaded but
+ * splash.js's own init() is deferred to DOMContentLoaded) are queued and
+ * replayed once init() completes, so the reveal sequence is never skipped.
  */
 (function () {
-  var AUTO_REVEAL_MS = 6000;   // safety net; set to Infinity to disable
+  var AUTO_REVEAL_MS = 6000;    // safety net; set to Infinity to disable
+  var MIN_VISIBLE_MS = 1100;    // guarantee the loading state is actually seen
   var DONE_TEXT = 'Your kitchen is ready';
 
   var TONES = {
@@ -30,10 +37,26 @@
 
   var root, steam, check, statusEl;
   var tone = 'warm', idx = 0, phase = 'loading';
-  var cycleT, fadeT, autoT, hideT;
+  var cycleT, fadeT, autoT, hideT, minWaitT;
+  var initialized = false;
+  var pending = [];
+  // Best proxy for "first visible" — this script runs right after the splash
+  // markup (first child of <body>) has been parsed, well before any later
+  // script or DOMContentLoaded. show() resets this on subsequent reveals.
+  var shownAt = Date.now();
 
   function $(sel) { return root ? root.querySelector(sel) : null; }
   function phrases() { return TONES[tone] || TONES.warm; }
+
+  // Defers a call until init() has wired up the DOM refs, so nothing silently
+  // no-ops if it's invoked while the document is still being parsed.
+  function whenReady(fn) {
+    return function () {
+      var args = arguments;
+      if (!initialized) { pending.push(function () { fn.apply(null, args); }); return; }
+      fn.apply(null, args);
+    };
+  }
 
   function setStatus(text) {
     if (!statusEl) return;
@@ -53,11 +76,12 @@
     }, 2400);
   }
 
-  function show() {
+  var show = whenReady(function () {
     if (!root) return;
     phase = 'loading';
     idx = 0;
-    clearTimeout(autoT); clearTimeout(hideT);
+    shownAt = Date.now();
+    clearTimeout(autoT); clearTimeout(hideT); clearTimeout(minWaitT);
     root.classList.remove('rb-splash-hidden');
     if (steam) steam.style.opacity = '1';
     if (check) {
@@ -68,10 +92,20 @@
     if (statusEl) statusEl.textContent = phrases()[0];
     startCycle();
     if (isFinite(AUTO_REVEAL_MS)) autoT = setTimeout(ready, AUTO_REVEAL_MS);
-  }
+  });
 
-  function ready() {
+  var ready = whenReady(function () {
     if (phase !== 'loading') return;
+
+    // Don't let a too-fast resolution (e.g. a cached/instant auth session)
+    // cut the animation short before the user has had a chance to see it.
+    var elapsed = Date.now() - shownAt;
+    if (elapsed < MIN_VISIBLE_MS) {
+      clearTimeout(minWaitT);
+      minWaitT = setTimeout(ready, MIN_VISIBLE_MS - elapsed);
+      return;
+    }
+
     phase = 'done';
     clearTimeout(autoT);
     setStatus(DONE_TEXT);
@@ -84,16 +118,16 @@
     hideT = setTimeout(function () {
       if (root) root.classList.add('rb-splash-hidden');
     }, 1500);
-  }
+  });
 
-  function setTone(name) {
+  var setTone = whenReady(function (name) {
     tone = TONES[name] ? name : 'warm';
     idx = 0;
     if (phase === 'loading') setStatus(phrases()[0]);
-  }
-  function setAccent(name) {
+  });
+  var setAccent = whenReady(function (name) {
     if (root) root.style.setProperty('--rb-accent', ACCENTS[name] || ACCENTS.coral);
-  }
+  });
 
   function init() {
     root = document.getElementById('rbSplash');
@@ -102,8 +136,15 @@
     check = $('.rb-splash-check');
     statusEl = $('.rb-splash-status');
     if (statusEl) statusEl.textContent = phrases()[0];
+    initialized = true;
     startCycle();
     if (isFinite(AUTO_REVEAL_MS)) autoT = setTimeout(ready, AUTO_REVEAL_MS);
+
+    // Replay anything that was called before we were ready (e.g. ready()
+    // fired by a fast auth resolution before DOMContentLoaded).
+    var queued = pending;
+    pending = [];
+    queued.forEach(function (fn) { fn(); });
   }
 
   window.recipeSplash = { show: show, ready: ready, setTone: setTone, setAccent: setAccent };
