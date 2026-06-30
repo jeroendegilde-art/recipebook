@@ -1,71 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  
+  <rect width="512" height="512" rx="90" fill="#14110c"></rect>
 
-  <!-- Background -->
-  <rect width="512" height="512" rx="90" fill="#111111"/>
-
-  <!-- ===== BOOK (closed, slight 3/4 view) ===== -->
-
-  <!-- Book shadow -->
-  <ellipse cx="268" cy="415" rx="140" ry="12" fill="#000000" opacity="0.5"/>
-
-  <!-- Book spine (right 3D face) -->
-  <path d="M 358 104 L 392 118 L 392 408 L 358 394 Z" fill="#222222"/>
-
-  <!-- Book top face (3D top edge) -->
-  <path d="M 148 104 L 358 104 L 392 118 L 182 118 Z" fill="#3a3a3a"/>
-
-  <!-- Book front cover (main face) -->
-  <rect x="148" y="104" width="210" height="290" rx="4" fill="#2e2e2e"/>
-
-  <!-- Spine dividing line -->
-  <line x1="358" y1="104" x2="358" y2="394" stroke="#1a1a1a" stroke-width="3"/>
-
-  <!-- Page edges at bottom (horizontal lines suggesting pages) -->
-  <line x1="155" y1="372" x2="352" y2="372" stroke="#444444" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="155" y1="382" x2="352" y2="382" stroke="#3e3e3e" stroke-width="2" stroke-linecap="round"/>
-  <line x1="155" y1="390" x2="352" y2="390" stroke="#383838" stroke-width="1.5" stroke-linecap="round"/>
-
-  <!-- Subtle border outline on front cover -->
-  <rect x="148" y="104" width="210" height="290" rx="4"
-        fill="none" stroke="#3d3d3d" stroke-width="2"/>
-
-  <!-- ===== WHISK (rotated 42°, cage upper-right, handle lower-left) ===== -->
-  <g transform="rotate(42, 256, 256)">
-
-    <!-- Handle (tapered toward bottom) -->
-    <path d="M 247 262 L 247 415 Q 253 422 256 422 Q 259 422 265 415 L 265 262 Z"
-          rx="9" fill="#c9a84c"/>
-
-    <!-- Handle taper at bottom -->
-    <path d="M 248 390 Q 256 425 264 390 Z" fill="#b8962e"/>
-
-    <!-- Grip rings on handle -->
-    <rect x="247" y="310" width="18" height="5" rx="2.5" fill="#b8962e"/>
-    <rect x="247" y="328" width="18" height="5" rx="2.5" fill="#b8962e"/>
-    <rect x="247" y="346" width="18" height="5" rx="2.5" fill="#b8962e"/>
-
-    <!-- Collar / neck -->
-    <rect x="242" y="252" width="28" height="16" rx="8" fill="#c9a84c"/>
-
-    <!-- Wire cage — near side (bowing left, 4 wires, most prominent) -->
-    <path d="M 256 260 C 148 228 130 136 256 88"
-          fill="none" stroke="#c9a84c" stroke-width="9" stroke-linecap="round"/>
-    <path d="M 256 260 C 185 235 172 146 256 88"
-          fill="none" stroke="#c9a84c" stroke-width="8" stroke-linecap="round"/>
-    <path d="M 256 260 C 216 246 210 162 256 88"
-          fill="none" stroke="#c9a84c" stroke-width="7" stroke-linecap="round"/>
-    <path d="M 256 260 C 238 254 234 172 256 88"
-          fill="none" stroke="#c9a84c" stroke-width="6" stroke-linecap="round"/>
-
-    <!-- Far side (bowing right, 2 wires, less prominent — shows depth) -->
-    <path d="M 256 260 C 280 252 286 170 256 88"
-          fill="none" stroke="#c9a84c" stroke-width="6" stroke-linecap="round"/>
-    <path d="M 256 260 C 318 238 332 148 256 88"
-          fill="none" stroke="#c9a84c" stroke-width="7" stroke-linecap="round"/>
-
-    <!-- Tip cap -->
-    <circle cx="256" cy="88" r="8" fill="#c9a84c"/>
-
+  
+  <g fill="none" stroke-linecap="round">
+    <path d="M196 286 q 22 -28 0 -54 q -22 -28 0 -54" stroke="#b8b1a0" stroke-width="11"></path>
+    <path d="M256 296 q 24 -30 0 -58 q -24 -30 0 -58" stroke="#e8e1d0" stroke-width="12"></path>
+    <path d="M316 286 q 22 -28 0 -54 q -22 -28 0 -54" stroke="#e27c6c" stroke-width="11" opacity="0.92"></path>
   </g>
 
+  
+  <path d="M124 302 L388 302 Q368 392 256 392 Q144 392 124 302 Z" fill="#1d1812" stroke="#e8e1d0" stroke-width="8" stroke-linejoin="round"></path>
+  <path d="M112 302 L400 302" stroke="#e8e1d0" stroke-width="11" stroke-linecap="round"></path>
+  <ellipse cx="256" cy="302" rx="124" ry="13" fill="#0c0a07"></ellipse>
+
+  
+  <circle cx="346" cy="297" r="9" fill="#e27c6c"></circle>
 </svg>
