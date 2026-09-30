@@ -414,7 +414,11 @@ function parseRecipeJson(content) {
 // automatic retry so a transient hiccup doesn't force the user to re-run.
 // `userContent` is the messages[0].content value: a string (text) or an array
 // (image blocks + a text block).
-async function callClaudeRecipe(userContent) {
+//
+// With `webFetch: true` the model fetches the URL itself via the server-side
+// web_fetch tool (used when the CORS proxies can't reach a page). Structured
+// output is skipped there and the final text block is parsed leniently.
+async function callClaudeRecipe(userContent, { webFetch = false } = {}) {
     if (!claudeApiKey) {
         throw new Error('Please add your Claude API key in Settings first');
     }
@@ -422,7 +426,7 @@ async function callClaudeRecipe(userContent) {
     let lastError;
     for (let attempt = 0; attempt < 2; attempt++) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45000);
+        const timeoutId = setTimeout(() => controller.abort(), webFetch ? 120000 : 45000);
 
         try {
             const body = {
@@ -430,9 +434,17 @@ async function callClaudeRecipe(userContent) {
                 max_tokens: 8192,
                 messages: [{ role: 'user', content: userContent }]
             };
-            // Ask for guaranteed-valid JSON on the first attempt. If the chosen
-            // model rejects it (400), the retry below drops it and parses leniently.
-            if (attempt === 0) {
+            if (webFetch) {
+                // Newer models get the dynamic-filtering variant; if the chosen
+                // model rejects it (400), the retry uses the basic variant.
+                body.tools = [{
+                    type: attempt === 0 ? 'web_fetch_20260209' : 'web_fetch_20250910',
+                    name: 'web_fetch',
+                    max_uses: 3
+                }];
+            } else if (attempt === 0) {
+                // Ask for guaranteed-valid JSON on the first attempt. If the chosen
+                // model rejects it (400), the retry below drops it and parses leniently.
                 body.output_config = { format: { type: 'json_schema', schema: RECIPE_SCHEMA } };
             }
 
@@ -465,7 +477,18 @@ async function callClaudeRecipe(userContent) {
             }
 
             const data = await response.json();
-            const content = data.content?.[0]?.text;
+            const blocks = data.content || [];
+
+            // A failed server-side fetch comes back as HTTP 200 with an error block.
+            const fetchResult = blocks.find(b => b.type === 'web_fetch_tool_result');
+            if (fetchResult && fetchResult.content?.type === 'web_fetch_tool_error'
+                && !blocks.some(b => b.type === 'web_fetch_tool_result' && b.content?.type === 'web_fetch_result')) {
+                throw new Error(`Could not fetch that page (${fetchResult.content.error_code || 'fetch failed'}). Try Paste or Manual instead.`);
+            }
+
+            // The recipe JSON is in the last text block (earlier ones may be
+            // commentary around tool calls).
+            const content = blocks.filter(b => b.type === 'text').map(b => b.text).pop();
             if (!content) { lastError = new Error('Empty response from Claude API'); continue; }
 
             const recipe = parseRecipeJson(content);
@@ -484,7 +507,7 @@ async function callClaudeRecipe(userContent) {
         } catch (error) {
             clearTimeout(timeoutId);
             // Don't retry user-actionable errors.
-            if (/Invalid API key|forbidden|No recipe found/.test(error.message)) throw error;
+            if (/Invalid API key|forbidden|No recipe found|Could not fetch that page/.test(error.message)) throw error;
             lastError = error.name === 'AbortError' ? new Error('Request timed out.') : error;
         }
     }
@@ -504,6 +527,23 @@ ${text.substring(0, 16000)}`;
 
     const recipe = await callClaudeRecipe(prompt);
     return { ...recipe, source: sourceUrl };
+}
+
+// Fallback for when no CORS proxy can reach the page: Claude fetches the URL
+// server-side with the web_fetch tool and extracts the recipe in one call.
+async function extractRecipeWithWebFetch(url) {
+    const prompt = `Use the web_fetch tool to fetch this recipe page, then extract the single recipe on it. Ignore navigation, ads, comments, author bios and personal stories. Capture the COMPLETE recipe — every ingredient and every method step. Dropping steps or ingredients is a failure.
+
+URL: ${url}
+
+${METRIC_RULES}
+
+${STRUCTURE_RULES}
+
+Reply with ONLY a JSON object (no prose, no code fence) with exactly these keys: "found" (boolean), "title" (string), "servings" (string), "ingredients" (array of strings), "instructions" (array of strings), "notes" (string).`;
+
+    const recipe = await callClaudeRecipe(prompt, { webFetch: true });
+    return { ...recipe, source: url, image: '' };
 }
 
 // Check if API key is configured
@@ -938,26 +978,31 @@ async function generateRecipePDF(recipe) {
 // Recipe Parsing
 // ============================================
 
-// Multiple CORS proxies to try as fallbacks
+// CORS proxies to try in order. Free proxies come and go (corsproxy.io now
+// requires a key; allorigins/codetabs are frequently down), so when all of them
+// fail and there's an API key, fetchRecipeFromUrl falls back to Claude's own
+// server-side web fetch.
 const CORS_PROXIES = [
-    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    (url) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
+    // Jina Reader returns the raw page HTML (incl. JSON-LD) with CORS headers.
+    { url: (url) => `https://r.jina.ai/${url}`, headers: { 'X-Return-Format': 'html' } },
+    { url: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` },
+    { url: (url) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}` },
 ];
 
 async function fetchWithProxy(url) {
     let lastError;
 
-    for (const proxyFn of CORS_PROXIES) {
-        const proxyUrl = proxyFn(url);
+    for (const proxy of CORS_PROXIES) {
+        const proxyUrl = proxy.url(url);
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            const timeoutId = setTimeout(() => controller.abort(), 12000);
 
             const response = await fetch(proxyUrl, {
                 signal: controller.signal,
                 headers: {
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    ...proxy.headers
                 }
             });
             clearTimeout(timeoutId);
@@ -986,7 +1031,9 @@ async function fetchRecipeFromUrl(url) {
         html = await fetchWithProxy(url);
     } catch (error) {
         console.error('Error fetching recipe page:', error);
-        throw new Error('Could not fetch recipe. CORS proxies may be unavailable. Try the manual input instead.');
+        // Proxies down or the site blocks them: let Claude fetch the page itself.
+        if (hasApiKey()) return extractRecipeWithWebFetch(url);
+        throw new Error('Could not fetch recipe — the page proxies are unavailable. Add a Claude API key in Settings, or use Paste / Manual instead.');
     }
 
     const doc = new DOMParser().parseFromString(html, 'text/html');
