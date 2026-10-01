@@ -989,15 +989,21 @@ const CORS_PROXIES = [
     { url: (url) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}` },
 ];
 
+// A proxy "success" isn't enough: blocked sites come back as "Access Denied"
+// pages and some proxies return truncated HTML. Only accept a page that
+// actually carries recipe markup.
+function looksLikeRecipePage(html) {
+    return /"recipeIngredient"|itemprop=["']?recipeIngredient|wprm-recipe|tasty-recipes|mv-create-ingredients|class=["'][^"']*\bingredients?\b/i.test(html);
+}
+
+// Query every proxy at once and take the first usable page, so a dead proxy
+// doesn't stall the scan while it times out.
 async function fetchWithProxy(url) {
-    let lastError;
-
-    for (const proxy of CORS_PROXIES) {
+    const attempts = CORS_PROXIES.map(async (proxy) => {
         const proxyUrl = proxy.url(url);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 12000);
-
             const response = await fetch(proxyUrl, {
                 signal: controller.signal,
                 headers: {
@@ -1005,22 +1011,23 @@ async function fetchWithProxy(url) {
                     ...proxy.headers
                 }
             });
-            clearTimeout(timeoutId);
-
-            if (response.ok) {
-                const text = await response.text();
-                // Check if we got actual HTML content
-                if (text.includes('<') && text.length > 500) {
-                    return text;
-                }
-            }
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const text = await response.text();
+            if (!looksLikeRecipePage(text)) throw new Error('No recipe markup in response');
+            return text;
         } catch (e) {
-            lastError = e;
             console.log(`Proxy failed: ${proxyUrl.substring(0, 50)}...`, e.message);
+            throw e;
+        } finally {
+            clearTimeout(timeoutId);
         }
-    }
+    });
 
-    throw lastError || new Error('All proxies failed');
+    try {
+        return await Promise.any(attempts);
+    } catch (e) {
+        throw new Error('All proxies failed');
+    }
 }
 
 async function fetchRecipeFromUrl(url) {
@@ -1070,8 +1077,15 @@ async function fetchRecipeFromUrl(url) {
             if (jsonLdRecipe.notes) content += `Notes: ${jsonLdRecipe.notes}\n`;
         }
         if (content.trim().length > 60) {
-            const claudeRecipe = await extractRecipeWithClaude(content, url);
-            claudeRecipe.image = image;
+            let claudeRecipe;
+            try {
+                claudeRecipe = await extractRecipeWithClaude(content, url);
+            } catch (error) {
+                // The proxy may have served a stripped-down page; fetch it directly.
+                if (!/No recipe found/.test(error.message)) throw error;
+                claudeRecipe = await extractRecipeWithWebFetch(url);
+            }
+            claudeRecipe.image = claudeRecipe.image || image;
             return claudeRecipe;
         }
     }
