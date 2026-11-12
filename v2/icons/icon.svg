@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#ff9d2e"/>
+  <g transform="translate(256 262) scale(1) rotate(-7)">
+    <rect x="-126" y="-150" width="252" height="316" rx="6" fill="#1a1206" opacity=".18" transform="translate(10 14)"/>
+    <rect x="-126" y="-150" width="252" height="316" rx="6" fill="#f3efe4"/>
+    <circle cx="-112" cy="-150" r="10.5" fill="#ff9d2e"/><circle cx="-84" cy="-150" r="10.5" fill="#ff9d2e"/><circle cx="-56" cy="-150" r="10.5" fill="#ff9d2e"/><circle cx="-28" cy="-150" r="10.5" fill="#ff9d2e"/><circle cx="0" cy="-150" r="10.5" fill="#ff9d2e"/><circle cx="28" cy="-150" r="10.5" fill="#ff9d2e"/><circle cx="56" cy="-150" r="10.5" fill="#ff9d2e"/><circle cx="84" cy="-150" r="10.5" fill="#ff9d2e"/><circle cx="112" cy="-150" r="10.5" fill="#ff9d2e"/>
+    <rect x="-94" y="-96" width="188" height="34" rx="4" fill="#17181a"/>
+    <rect x="-94" y="-46" width="124" height="34" rx="4" fill="#17181a"/>
+    <path d="M-94 22H94" stroke="#b9b2a2" stroke-width="5" stroke-dasharray="11 9" stroke-linecap="round"/>
+    <rect x="-94" y="52" width="150" height="15" rx="4" fill="#8f8878"/>
+    <rect x="-94" y="84" width="104" height="15" rx="4" fill="#8f8878"/>
+    <circle cx="76" cy="108" r="19" fill="#ff9d2e"/>
+  </g>
+</svg>
