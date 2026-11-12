@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Recepten</title>
+    <meta name="description" content="Je eigen receptenverzameling">
+    <meta name="theme-color" content="#fbfaf7">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/x-icon" href="../icons/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="../icons/icon-180.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Recepten">
+    <script>
+        // Thema toepassen voor de eerste pixel, zodat het scherm niet flitst.
+        try {
+            var t = localStorage.getItem('rb2:theme');
+            if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+        } catch (e) {}
+    </script>
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+    <div id="app" data-route="boot">
+        <div class="boot"><p>Laden…</p></div>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <noscript>Deze app heeft JavaScript nodig.</noscript>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
