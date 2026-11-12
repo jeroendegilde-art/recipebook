@@ -1,4 +1,4 @@
-// Hoeveelheden schalen en zoeken. Pure functies, geen DOM. Getest in tests/.
+// Scaling quantities and searching. Pure functions, no DOM. Tested in tests/.
 
 const UNICODE_FRACTIONS = {
     '½': 1 / 2, '⅓': 1 / 3, '⅔': 2 / 3, '¼': 1 / 4, '¾': 3 / 4,
@@ -7,22 +7,27 @@ const UNICODE_FRACTIONS = {
 };
 const FRAC_CHARS = Object.keys(UNICODE_FRACTIONS).join('');
 
-// Breuken die we terug durven te schrijven. Alleen de gangbare keukenbreuken.
+// Fractions we dare to write back. Only the common kitchen fractions.
 const NICE_FRACTIONS = [
     [1 / 8, '⅛'], [1 / 4, '¼'], [1 / 3, '⅓'], [1 / 2, '½'], [2 / 3, '⅔'], [3 / 4, '¾'],
 ];
 
-// Eenheden die je weegt of afmeet: daar hoort een decimaal getal bij, geen breuk.
-const METRIC_UNIT = /^\s*(?:g|gr|gram|kg|kilo|mg|ml|cl|dl|l|liter|cm|mm)\b/i;
+// Units you weigh or measure: these take a decimal number, not a fraction.
+// Dutch and English spellings.
+const METRIC_UNIT = /^\s*(?:g|gr|gram|grams|kg|kilo|kilogram|kilograms|mg|ml|milliliter|millilitre|cl|dl|l|liter|liters|litre|litres|cm|mm)\b/i;
 
-// Eén getal in een ingrediëntregel. Volgorde is van belang: langste vorm eerst.
+// English containers that take a size per piece after "of": "1 can of 400 g".
+// Kept to a fixed list because Dutch "of" means "or" ("boter of 100 g margarine").
+const CONTAINER_OF = /\b(?:cans?|tins?|jars?|packs?|packets?|packages?|bottles?|bags?|box(?:es)?|cartons?|tubs?|tubes?|blocks?|sticks?|pieces?)\s+of\s+$/i;
+
+// One number in an ingredient line. Order matters: longest form first.
 const NUMBER = new RegExp(
-    `(\\d+)\\s*([${FRAC_CHARS}])` +          // 1: geheel + 2: unicode-breuk   "1½"
-    `|(\\d+)\\s+(\\d+)\\/(\\d+)` +           // 3,4,5: gemengd getal           "1 1/2"
-    `|(\\d+)\\/(\\d+)` +                     // 6,7: breuk                     "3/4"
-    `|(\\d+[.,]\\d+)` +                      // 8: decimaal, punt of komma     "1,5"
-    `|(\\d+)` +                              // 9: geheel getal                "250"
-    `|([${FRAC_CHARS}])`,                    // 10: losse unicode-breuk        "½"
+    `(\\d+)\\s*([${FRAC_CHARS}])` +          // 1: whole + 2: unicode fraction "1½"
+    `|(\\d+)\\s+(\\d+)\\/(\\d+)` +           // 3,4,5: mixed number            "1 1/2"
+    `|(\\d+)\\/(\\d+)` +                     // 6,7: fraction                  "3/4"
+    `|(\\d+[.,]\\d+)` +                      // 8: decimal, dot or comma       "1,5"
+    `|(\\d+)` +                              // 9: whole number                "250"
+    `|([${FRAC_CHARS}])`,                    // 10: lone unicode fraction      "½"
     'g'
 );
 
@@ -36,53 +41,64 @@ function tokenValue(m) {
     return null;
 }
 
-function trimNumber(value, decimals) {
-    return value.toFixed(decimals).replace(/\.?0+$/, '').replace('.', ',');
+function trimNumber(value, decimals, comma) {
+    const text = value.toFixed(decimals).replace(/\.?0+$/, '');
+    return comma ? text.replace('.', ',') : text;
 }
 
-/** Schrijf een geschaalde hoeveelheid zoals een kok hem zou opschrijven. */
-export function formatQuantity(value, { metric = false } = {}) {
+/**
+ * Write a scaled quantity the way a cook would write it down.
+ * `comma` picks the decimal separator: comma when true, dot otherwise.
+ */
+export function formatQuantity(value, { metric = false, comma = false } = {}) {
     if (!(value > 0)) return '0';
 
     if (metric) {
         if (value >= 100) return String(Math.round(value));
-        if (value >= 10) return trimNumber(Math.round(value * 2) / 2, 1);
-        return trimNumber(value, 2);
+        if (value >= 10) return trimNumber(Math.round(value * 2) / 2, 1, comma);
+        return trimNumber(value, 2, comma);
     }
 
     const whole = Math.floor(value + 1e-9);
     const rest = value - whole;
-    if (rest < 0.03) return String(whole || 0) === '0' ? trimNumber(value, 2) : String(whole);
+    if (rest < 0.03) return String(whole || 0) === '0' ? trimNumber(value, 2, comma) : String(whole);
     if (rest > 0.97) return String(whole + 1);
     for (const [fraction, char] of NICE_FRACTIONS) {
         if (Math.abs(rest - fraction) < 0.03) return whole > 0 ? `${whole}${char}` : char;
     }
-    return trimNumber(value, value < 10 ? 1 : 0);
+    return trimNumber(value, value < 10 ? 1 : 0, comma);
 }
 
-// Moet dit getal met rust gelaten worden? Dan is het geen hoeveelheid.
+// Should this number be left alone? Then it is not an amount.
 function isNotAnAmount(text, start, end, raw) {
     const before = text.slice(0, start);
     const after = text.slice(end);
 
-    // Percentages en graden: "18% room", "180 °C".
-    if (/^\s*(?:%|°|℃|℉|graden\b)/.test(after)) return true;
-    // Onderdeel van een woord of code: "E471", "T65", "type 00".
+    // Percentages and degrees: "18% room", "180 °C", "180 degrees".
+    if (/^\s*(?:%|°|℃|℉|graden\b|degrees\b)/i.test(after)) return true;
+    // Part of a word or code: "E471", "T65", "type 00".
     if (/[A-Za-zÀ-ÿ]$/.test(before)) return true;
     if (/^0\d/.test(raw)) return true;
-    // Tweede getal in "2 x 400 g": het eerste telt, dit is de maat per stuk.
+    // Second number in "2 x 400 g": the first one counts, this is the size per piece.
     if (/\d\s*[x×]\s*$/i.test(before)) return true;
-    // Maat per stuk: "1 blik à 400 g", "stuk gember van 3 cm".
-    // "2 à 3 tenen" is een bereik en schaalt wel: daar staat een getal voor "à".
-    if (/[A-Za-zÀ-ÿ)]\s+(?:à|a|van|of)\s+$/i.test(before) && METRIC_UNIT.test(after)
-        && !/\bof\s+$/i.test(before)) return true;
+    // Size per piece: "1 blik à 400 g", "stuk gember van 3 cm".
+    // "2 à 3 tenen" is a range and does scale: there a number precedes "à".
+    if (/[A-Za-zÀ-ÿ)]\s+(?:à|a|van)\s+$/i.test(before) && METRIC_UNIT.test(after)) return true;
+    // English "1 can of 400 g tomatoes". Only after a container word, because
+    // Dutch "of" means "or" and those amounts do scale.
+    if (CONTAINER_OF.test(before) && METRIC_UNIT.test(after)) return true;
     return false;
 }
 
-/** Schaal alle hoeveelheden in één ingrediëntregel. Tekst blijft staan. */
+/**
+ * Scale all quantities in one ingredient line. The text stays as it is.
+ * The output uses the decimal separator the line itself uses: a comma when
+ * any number in the line is written with one ("1,5"), otherwise a dot.
+ */
 export function scaleIngredient(text, factor) {
     const line = String(text ?? '');
     if (factor === 1 || !(factor > 0)) return line;
+    const comma = /\d,\d/.test(line);
 
     return line.replace(NUMBER, (raw, ...groups) => {
         const offset = groups[groups.length - 2];
@@ -92,11 +108,11 @@ export function scaleIngredient(text, factor) {
         if (isNotAnAmount(line, offset, offset + raw.length, raw)) return raw;
 
         const metric = METRIC_UNIT.test(line.slice(offset + raw.length));
-        return formatQuantity(value * factor, { metric });
+        return formatQuantity(value * factor, { metric, comma });
     });
 }
 
-/** Eerste getal uit een portie-tekst: "4 personen" -> 4, "Voor 12 koekjes" -> 12. */
+/** First number in a servings text: "4 servings" -> 4, "Makes 12 cookies" -> 12. */
 export function parseServings(text) {
     const m = /\d+/.exec(String(text ?? ''));
     if (!m) return null;
@@ -104,12 +120,12 @@ export function parseServings(text) {
     return n > 0 && n <= 500 ? n : null;
 }
 
-/** Vervang het eerste getal in de portie-tekst door het nieuwe aantal. */
+/** Replace the first number in the servings text with the new count. */
 export function withServings(text, count) {
     return String(text ?? '').replace(/\d+/, String(count));
 }
 
-// --- Zoeken ---
+// --- Search ---
 
 export function normalize(text) {
     return String(text ?? '')
@@ -118,12 +134,12 @@ export function normalize(text) {
         .replace(/[̀-ͯ]/g, '');
 }
 
-/** Vaste sleutel voor een ingrediënt, zodat een vinkje bij het ingrediënt blijft. */
+/** Stable key for an ingredient, so a check stays with the ingredient. */
 export function ingredientKey(text) {
     return normalize(text).replace(/\s+/g, ' ').trim();
 }
 
-/** Elk zoekwoord moet ergens in titel, ingrediënten, notities of bron staan. */
+/** Every search word must appear somewhere in title, ingredients, notes or source. */
 export function matchesQuery(recipe, query) {
     const words = normalize(query).split(/\s+/).filter(Boolean);
     if (words.length === 0) return true;
@@ -134,4 +150,24 @@ export function matchesQuery(recipe, query) {
         recipe.source,
     ].filter(Boolean).join('\n'));
     return words.every(word => haystack.includes(word));
+}
+
+// --- Splitting a line into amount and ingredient, for the prep-list layout ---
+
+const AMOUNT = `(?:\\d+\\s*[${FRAC_CHARS}]|\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+[.,]\\d+|\\d+|[${FRAC_CHARS}])`;
+const UNITS = 'g|gr|grams?|kg|kilo|mg|ml|cl|dl|l|liters?|litres?|tsp|tbsp|teaspoons?|tablespoons?|cups?|oz|lbs?|'
+    + 'el|tl|eetlepels?|theelepels?|cm|mm';
+const LEADING_AMOUNT = new RegExp(
+    `^\\s*(${AMOUNT}(?:\\s*(?:-|–|à|to|tot)\\s*${AMOUNT})?(?:\\s*(?:${UNITS})\\b\\.?)?)\\s+(\\S.*)$`, 'i'
+);
+
+/**
+ * "400 g spaghetti" -> { amount: "400 g", name: "spaghetti" }.
+ * A line that does not start with a number keeps everything in `name`.
+ */
+export function splitIngredient(text) {
+    const line = String(text ?? '').trim();
+    const match = LEADING_AMOUNT.exec(line);
+    if (!match) return { amount: '', name: line };
+    return { amount: match[1].replace(/\s+/g, ' ').trim(), name: match[2].trim() };
 }

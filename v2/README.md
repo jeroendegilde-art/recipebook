@@ -1,34 +1,44 @@
-# Recepten v2
+# Recipe Book v2
 
-Nieuwe versie van de receptenapp. Staat naast de oude app (de map hierboven) en
-werkt op dezelfde Firebase-data. Je kunt beide door elkaar gebruiken.
+New version of the recipe app. It lives next to the old app (the folder above)
+and works on the same Firebase data. You can use both side by side.
 
-Geen buildstap. Het zijn losse ES-modules die de browser direct laadt.
+No build step. These are plain ES modules that the browser loads directly.
 
-## Indeling
+## Layout
 
-| Bestand | Wat het doet |
+| File | What it does |
 |---|---|
-| `js/main.js` | Opstarten, aanmelden, schermen wisselen |
-| `js/store.js` | Recepten, collecties, instellingen. Enige plek die naar Firebase schrijft |
-| `js/firebase.js` | Dunne laag om de Firebase SDK |
-| `js/router.js` | Navigatie via de hash, zodat de terugknop werkt |
-| `js/quantity.js` | Hoeveelheden schalen en zoeken. Pure functies, getest |
-| `js/viewstate.js` | Schaal, vinkjes en huidige stap per recept |
-| `js/extract.js` | Uitlezen via link, foto, tekst en PDF. Overgenomen uit v1 |
-| `js/messages.js` | Nederlandse vertaling van foutmeldingen uit `extract.js` |
-| `js/dom.js` | Elementen bouwen, dialogen, meldingen |
-| `js/views/` | Eén bestand per scherm |
+| `js/main.js` | Startup, sign-in, switching screens |
+| `js/store.js` | Recipes, collections, settings. The only place that writes to Firebase |
+| `js/firebase.js` | Thin layer around the Firebase SDK |
+| `js/router.js` | Navigation through the hash, so the back button works |
+| `js/quantity.js` | Scaling quantities and searching. Pure functions, tested |
+| `js/viewstate.js` | Scale, checks and current step per recipe |
+| `js/extract.js` | Reading recipes from a link, photo, text or PDF. Ported from v1 |
+| `js/messages.js` | Friendly wording for the error messages from `extract.js` |
+| `js/dom.js` | Building elements, dialogs, toasts |
+| `js/views/` | One file per screen |
 
-## Testen
+## Testing
 
 ```bash
 node --test v2/tests/quantity.test.mjs
 ```
 
-## Afspraken in de code
+## Conventions in the code
 
-- Data van de gebruiker of van internet gaat nooit via `innerHTML`. Gebruik `h()` uit `dom.js`.
-- Schermen schrijven niet zelf naar Firebase. Dat doet `store.js`.
-- Een wijziging stuurt alleen de gewijzigde velden (merge), zodat twee apparaten elkaar niet overschrijven.
-- Wat je tijdens het koken instelt (schaal, vinkjes) staat los van de receptdata. Een sync-update wist het niet.
+- Data from the user or from the internet never goes through `innerHTML`. Use `h()` from `dom.js`.
+- Screens do not write to Firebase themselves. `store.js` does that.
+- A change sends only the changed fields (merge), so two devices do not overwrite each other.
+- What you set while cooking (scale, checks) is kept apart from the recipe data. A sync update does not clear it.
+
+## Look
+
+The design is called "The Pass": a restaurant kitchen during service. Graphite
+ground, one heat-lamp orange, condensed capitals, and paper tickets as the only
+light surface. Dark only, because the app is read next to a stove in the
+evening. The tokens and the reasoning are at the top of `css/app.css`.
+
+Fonts are self-hosted in `fonts/` (Sofia Sans Condensed and Hanken Grotesk,
+both under the SIL Open Font License), so the app looks the same offline.

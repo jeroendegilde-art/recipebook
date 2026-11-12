@@ -1,29 +1,30 @@
-// Foutmeldingen uit de uitleescode (extract.js) zijn Engels. Hier worden ze
-// vertaald voordat de gebruiker ze ziet. Onbekende meldingen krijgen een
-// algemene Nederlandse zin, met het origineel erachter voor wie wil zoeken.
+// The error messages thrown by the extraction code (extract.js) are terse and
+// technical. Here they are mapped to friendly wording before the user sees
+// them. Unknown messages get a general sentence, followed by the original for
+// anyone who wants to look it up.
 
 const TRANSLATIONS = [
-    [/add your Claude API key|API key in Settings/i, 'Vul eerst je Claude API key in bij Instellingen.'],
-    [/Invalid API key/i, 'De API key klopt niet. Controleer hem bij Instellingen.'],
-    [/forbidden|browser access/i, 'Deze API key mag niet vanuit de browser gebruikt worden. Zet "browser access" aan in de Anthropic Console.'],
-    [/No recipe found/i, 'Geen recept gevonden in deze inhoud.'],
-    [/Could not fetch that page/i, 'Deze pagina kon niet worden opgehaald. Probeer Plakken of Zelf typen.'],
-    [/page proxies are unavailable|All proxies failed/i, 'De pagina kon niet worden opgehaald. Vul een API key in, of gebruik Plakken of Zelf typen.'],
-    [/timed out/i, 'Het duurde te lang. Probeer het opnieuw.'],
-    [/Rate limit|429/i, 'Te veel verzoeken achter elkaar. Wacht even en probeer opnieuw.'],
-    [/Could not parse the recipe/i, 'Het antwoord kon niet worden gelezen. Probeer het opnieuw.'],
-    [/Empty response/i, 'Er kwam een leeg antwoord terug. Probeer het opnieuw.'],
-    [/No photos/i, 'Voeg eerst een foto toe.'],
-    [/PDF library not loaded/i, 'De PDF-lezer kon niet worden geladen. Controleer je verbinding.'],
-    [/Could not read the PDF|Could not open PDF/i, 'Deze PDF kon niet worden geopend. Hij is mogelijk beschadigd of beveiligd.'],
-    [/No readable text found/i, 'Geen leesbare tekst gevonden. De PDF bestaat waarschijnlijk uit scans. Gebruik dan Foto.'],
-    [/Failed to fetch|NetworkError|Load failed/i, 'Geen verbinding. Controleer je internet en probeer opnieuw.'],
+    [/add your Claude API key|API key in Settings/i, 'Add your Claude API key in Settings first.'],
+    [/Invalid API key/i, 'The API key is not valid. Check it in Settings.'],
+    [/forbidden|browser access/i, 'This API key cannot be used from the browser. Turn on "browser access" in the Anthropic Console.'],
+    [/No recipe found/i, 'No recipe found in this content.'],
+    [/Could not fetch that page/i, 'This page could not be loaded. Try Paste or Type it in.'],
+    [/page proxies are unavailable|All proxies failed/i, 'The page could not be loaded. Add an API key, or use Paste or Type it in.'],
+    [/timed out/i, 'That took too long. Try again.'],
+    [/Rate limit|429/i, 'Too many requests in a row. Wait a moment and try again.'],
+    [/Could not parse the recipe/i, 'The answer could not be read. Try again.'],
+    [/Empty response/i, 'The answer came back empty. Try again.'],
+    [/No photos/i, 'Add a photo first.'],
+    [/PDF library not loaded/i, 'The PDF reader could not be loaded. Check your connection.'],
+    [/Could not read the PDF|Could not open PDF/i, 'This PDF could not be opened. It may be damaged or protected.'],
+    [/No readable text found/i, 'No readable text found. The PDF probably consists of scans. Use Photo instead.'],
+    [/Failed to fetch|NetworkError|Load failed/i, 'No connection. Check your internet and try again.'],
 ];
 
 export function translateError(error) {
     const original = String(error?.message || error || '');
-    for (const [pattern, dutch] of TRANSLATIONS) {
-        if (pattern.test(original)) return dutch;
+    for (const [pattern, friendly] of TRANSLATIONS) {
+        if (pattern.test(original)) return friendly;
     }
-    return original ? `Er ging iets mis: ${original}` : 'Er ging iets mis.';
+    return original ? `Something went wrong: ${original}` : 'Something went wrong.';
 }

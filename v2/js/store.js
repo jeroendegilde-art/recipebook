@@ -1,6 +1,6 @@
-// Eén bron van waarheid voor recepten, collecties en instellingen.
-// Schermen lezen `state` en luisteren met on(). Ze schrijven alleen via de
-// functies hieronder. Dataformaat is gelijk aan v1.
+// Single source of truth for recipes, collections and settings.
+// Screens read `state` and listen with on(). They only write through the
+// functions below. The data format is the same as v1.
 
 import { backend } from './firebase.js';
 
@@ -11,10 +11,10 @@ export const state = {
     folders: [],
     settings: { apiKey: '', model: '', nookUrl: '', nookToken: '' },
     sync: 'connecting', // 'connecting' | 'synced' | 'offline' | 'error'
-    loaded: false,      // true zodra recepten uit cache of cloud binnen zijn
+    loaded: false,      // true once recipes have arrived from cache or cloud
 };
 
-// Fallback zolang de lijst met modellen nog niet is opgehaald of geen keuze is gemaakt.
+// Fallback while the model list has not been fetched yet or no choice was made.
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 
 const listeners = new Map();
@@ -28,11 +28,11 @@ export function on(topic, fn) {
 
 function emit(topic, payload) {
     listeners.get(topic)?.forEach(fn => {
-        try { fn(payload); } catch (error) { console.error(`Fout in luisteraar voor "${topic}"`, error); }
+        try { fn(payload); } catch (error) { console.error(`Error in listener for "${topic}"`, error); }
     });
 }
 
-// --- Normalisatie: wat er ook in de database staat, de app krijgt een heel recept. ---
+// --- Normalization: whatever is in the database, the app gets a complete recipe. ---
 
 const asText = value => (typeof value === 'string' ? value : value == null ? '' : String(value));
 const asLines = value => (Array.isArray(value) ? value.map(asText).map(s => s.trim()).filter(Boolean) : []);
@@ -41,7 +41,7 @@ export function normalizeRecipe(raw) {
     return {
         ...raw,
         id: asText(raw.id),
-        title: asText(raw.title).trim() || 'Naamloos recept',
+        title: asText(raw.title).trim() || 'Untitled recipe',
         servings: asText(raw.servings),
         ingredients: asLines(raw.ingredients),
         instructions: asLines(raw.instructions),
@@ -55,7 +55,7 @@ export function normalizeRecipe(raw) {
 }
 
 function normalizeFolder(raw) {
-    return { ...raw, id: asText(raw.id), name: asText(raw.name).trim() || 'Naamloos', createdAt: asText(raw.createdAt) };
+    return { ...raw, id: asText(raw.id), name: asText(raw.name).trim() || 'Untitled', createdAt: asText(raw.createdAt) };
 }
 
 function sortRecipes(list) {
@@ -71,7 +71,7 @@ function sortFolders(list) {
     });
 }
 
-// --- Lokale kopie, zodat de app direct iets toont en offline leesbaar blijft. ---
+// --- Local copy, so the app shows something right away and stays readable offline. ---
 
 const cacheKey = uid => `rb2:cache:${uid}`;
 
@@ -83,7 +83,7 @@ function writeCache() {
     if (!state.user) return;
     try {
         localStorage.setItem(cacheKey(state.user.uid), JSON.stringify({ recipes: state.recipes, folders: state.folders }));
-    } catch { /* opslag vol of geblokkeerd: de app werkt door zonder cache */ }
+    } catch { /* storage full or blocked: the app carries on without a cache */ }
 }
 
 function setSync(value) {
@@ -92,7 +92,7 @@ function setSync(value) {
     emit('sync', value);
 }
 
-// --- Aanmelden en luisteren ---
+// --- Signing in and listening ---
 
 export function init() {
     backend.onAuth(user => {
@@ -125,7 +125,7 @@ export function init() {
 
 function startListening(uid) {
     setSync(navigator.onLine ? 'connecting' : 'offline');
-    const failed = error => { console.error('Sync-fout', error); setSync('error'); };
+    const failed = error => { console.error('Sync error', error); setSync('error'); };
 
     unsubscribers = [
         backend.watchCollection(['users', uid, 'recipes'], docs => {
@@ -142,7 +142,7 @@ function startListening(uid) {
             emit('folders');
         }, failed),
 
-        // v1 bewaart alle instellingen in één document met deze naam.
+        // v1 keeps all settings in a single document with this name.
         backend.watchDoc(['users', uid, 'settings', 'apiKey'], data => {
             state.settings = {
                 apiKey: asText(data?.claudeApiKey),
@@ -151,19 +151,19 @@ function startListening(uid) {
                 nookToken: asText(data?.nookToken),
             };
             emit('settings');
-        }, error => console.error('Instellingen laden mislukt', error)),
+        }, error => console.error('Loading settings failed', error)),
     ];
 }
 
 function stopListening() {
-    unsubscribers.forEach(stop => { try { stop(); } catch { /* al gestopt */ } });
+    unsubscribers.forEach(stop => { try { stop(); } catch { /* already stopped */ } });
     unsubscribers = [];
 }
 
 export const signIn = () => backend.signIn();
 export const signOut = () => backend.signOut();
 
-// --- Schrijven. Eerst lokaal (direct zichtbaar), dan naar de cloud. ---
+// --- Writing. First locally (visible right away), then to the cloud. ---
 
 function newId() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
@@ -174,11 +174,11 @@ function withoutUndefined(object) {
 }
 
 async function write(path, data, options) {
-    if (!state.user) throw new Error('Niet aangemeld');
+    if (!state.user) throw new Error('Not signed in');
     try {
         await backend.set(path, withoutUndefined(data), options);
     } catch (error) {
-        console.error('Opslaan mislukt', error);
+        console.error('Saving failed', error);
         emit('write-error', error);
         throw error;
     }
@@ -204,7 +204,7 @@ export function addRecipe(data) {
     return recipe;
 }
 
-/** Past alleen de meegegeven velden aan. Andere velden in de cloud blijven staan. */
+/** Changes only the given fields. Other fields in the cloud stay as they are. */
 export function updateRecipe(id, patch) {
     const current = getRecipe(id);
     if (!current) return null;
@@ -217,7 +217,7 @@ export function updateRecipe(id, patch) {
     return updated;
 }
 
-/** Verwijdert en geeft een functie terug waarmee het ongedaan kan. */
+/** Deletes and returns a function that undoes it. */
 export function deleteRecipe(id) {
     const removed = getRecipe(id);
     if (!removed) return null;
@@ -234,7 +234,7 @@ export function deleteRecipe(id) {
     };
 }
 
-/** Voegt recepten uit een back-up toe. Bestaande recepten (zelfde id) blijven ongemoeid. */
+/** Adds recipes from a backup. Existing recipes (same id) are left untouched. */
 export async function importRecipes(list) {
     const existing = new Set(state.recipes.map(r => r.id));
     const incoming = list
@@ -267,7 +267,7 @@ export function renameFolder(id, name) {
     write(folderPath(id), { ...changes, id }, { merge: true }).catch(() => {});
 }
 
-/** Verwijdert de collectie. De recepten erin blijven bestaan, zonder collectie. */
+/** Deletes the collection. The recipes in it remain, without a collection. */
 export function deleteFolder(id) {
     state.recipes.filter(r => r.folderId === id).forEach(r => updateRecipe(r.id, { folderId: '' }));
     state.folders = state.folders.filter(f => f.id !== id);

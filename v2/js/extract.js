@@ -1,12 +1,12 @@
-// Recepten uitlezen: van link, geplakte tekst, foto of PDF.
-// Overgenomen uit v1 (app.js). De logica en de prompts zijn bewust gelijk
-// gehouden. Wijzigingen: geen globale variabelen meer (zie `config`), geen
-// debug-logging, en de Fahrenheit-herkenning is gerepareerd.
+// Reading recipes: from a link, pasted text, photo or PDF.
+// Ported from v1 (app.js). The logic and the prompts are deliberately kept
+// the same. Changes: no more global variables (see `config`), no debug
+// logging, and the Fahrenheit detection is fixed.
 //
-// Foutmeldingen zijn hier Engels, omdat de code er intern op matcht.
-// De vertaling voor de gebruiker staat in messages.js.
+// The error messages here are terse, and other code matches on them.
+// The friendly wording for the user is in messages.js.
 
-/** Wordt bij het opstarten gevuld door main.js. */
+/** Filled in at startup by main.js. */
 export const config = {
     apiKey: () => '',
     model: () => '',
@@ -16,7 +16,7 @@ function hasApiKey() {
     return !!config.apiKey();
 }
 
-// --- Omrekenen naar metrisch (alleen gebruikt zonder API key) ---
+// --- Converting to metric (only used without an API key) ---
 
 const conversions = {
     // Volume
@@ -56,8 +56,8 @@ function convertToMetric(text) {
     const fc = Object.keys(fractionMap).join(''); // fraction unicode chars
 
     // 1. Temperatures
-    // v1 las "2 f" in "2 fijngesneden uien" als Fahrenheit. Nu is een gradenteken,
-    // het woord "degrees" of een losse hoofdletter F verplicht.
+    // v1 read "2 f" in "2 fijngesneden uien" as Fahrenheit. Now a degree sign,
+    // the word "degrees" or a standalone capital F is required.
     text = text.replace(/(\d+)\s*(?:°\s*F(?:ahrenheit)?\b|℉|degrees\s+F(?:ahrenheit)?\b|F\b(?![a-zà-ÿ]))/g, (_, t) =>
         `${Math.round((parseInt(t) - 32) * 5 / 9)}°C`
     );
@@ -112,7 +112,7 @@ function convertToMetric(text) {
     return text;
 }
 
-// --- Uitlezen met Claude ---
+// --- Reading with Claude ---
 
 // Shared metric-conversion rules. The MODEL does the conversion — it knows the
 // density of each ingredient, which a regex never can (a cup of oats is ~90g, a
@@ -311,7 +311,7 @@ Reply with ONLY a JSON object (no prose, no code fence) with exactly these keys:
 }
 
 
-// --- Foto's ---
+// --- Photos ---
 
 async function extractRecipeFromPhotos(photos) {
     if (!config.apiKey()) {
@@ -344,7 +344,7 @@ ${STRUCTURE_RULES}`;
     return { ...recipe, source: '' };
 }
 
-// --- PDF-kookboek ---
+// --- PDF cookbook ---
 
 async function extractTextFromPDF(file, onPageProgress) {
     const pdfjsLib = window.pdfjsLib;
@@ -506,7 +506,7 @@ async function processPDFBulkImport(file, onProgress) {
     return allRecipes;
 }
 
-// --- Webpagina ophalen en ontleden ---
+// --- Fetching and parsing a web page ---
 
 // CORS proxies to try in order. Free proxies come and go (corsproxy.io now
 // requires a key; allorigins/codetabs are frequently down), so when all of them

@@ -1,11 +1,11 @@
-// Service worker voor /v2/.
+// Service worker for /v2/.
 //
-// Eerst het netwerk, dan de kopie. Een nieuwe versie is er dus bij de volgende
-// keer openen, zonder versienummers te hoeven ophogen. De kopie is er alleen
-// voor als je offline bent.
+// Network first, then the cached copy. A new version is there the next time
+// you open the app, without bumping version numbers. The copy is only for
+// when you are offline.
 //
-// Deze worker heeft een eigen scope (/v2/). Zonder hem zou de worker van v1
-// (scope /recipebook/) deze bestanden onderscheppen en voor altijd vasthouden.
+// This worker has its own scope (/v2/). Without it the v1 worker
+// (scope /recipebook/) would intercept these files and hold on to them forever.
 
 const CACHE = 'recepten-v2';
 
@@ -21,8 +21,8 @@ self.addEventListener('fetch', event => {
 
     const url = new URL(request.url);
 
-    // De Firebase-bibliotheek heeft een versienummer in het adres en verandert
-    // dus nooit. Eén keer ophalen is genoeg, daarna start de app ook offline.
+    // The Firebase library has a version number in its URL, so it never
+    // changes. Fetching it once is enough; after that the app also starts offline.
     if (url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')) {
         event.respondWith(caches.match(request).then(cached => cached || fetch(request).then(response => {
             if (response.ok) {
@@ -34,8 +34,8 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // Verder alleen eigen bestanden. Firestore, de Claude API en foto's van andere
-    // sites gaan rechtstreeks naar het netwerk.
+    // Beyond that, only our own files. Firestore, the Claude API and photos from
+    // other sites go straight to the network.
     if (url.origin !== self.location.origin) return;
 
     event.respondWith(

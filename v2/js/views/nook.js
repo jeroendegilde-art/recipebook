@@ -1,4 +1,4 @@
-// Ingrediënten naar de boodschappenlijst van Nook sturen. Zelfde API als v1.
+// Send ingredients to the Nook shopping list. Same API as v1.
 
 import { h, icon, toast } from '../dom.js';
 import { state } from '../store.js';
@@ -16,8 +16,8 @@ export function openNookSheet(recipe, factor) {
 
     function refresh() {
         const selected = items.filter(i => i.on).length;
-        toggleAll.textContent = selected === items.length ? 'Niets selecteren' : 'Alles selecteren';
-        send.textContent = selected === 1 ? 'Stuur 1 ingrediënt' : `Stuur ${selected} ingrediënten`;
+        toggleAll.textContent = selected === items.length ? 'Select none' : 'Select all';
+        send.textContent = selected === 1 ? 'Send 1 ingredient' : `Send ${selected} ingredients`;
         send.disabled = selected === 0;
         list.replaceChildren(...items.map(item => h('li', null,
             h('button', {
@@ -40,7 +40,7 @@ export function openNookSheet(recipe, factor) {
     send.addEventListener('click', async () => {
         const selected = items.filter(i => i.on).map(i => i.text);
         send.disabled = true;
-        send.textContent = 'Versturen…';
+        send.textContent = 'Sending…';
         status.textContent = '';
         try {
             const response = await fetch(`${state.settings.nookUrl}/api/shopping`, {
@@ -51,24 +51,24 @@ export function openNookSheet(recipe, factor) {
             const data = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
             const parts = [];
-            if (data.added > 0) parts.push(`${data.added} toegevoegd`);
-            if (data.skipped > 0) parts.push(`${data.skipped} stonden er al`);
+            if (data.added > 0) parts.push(`${data.added} added`);
+            if (data.skipped > 0) parts.push(`${data.skipped} already on the list`);
             dialog.close();
-            toast(parts.join(', ') || 'Verstuurd naar Nook');
+            toast(parts.join(', ') || 'Sent to Nook');
         } catch (error) {
-            status.textContent = `Versturen lukte niet: ${error.message}`;
+            status.textContent = `Could not send to Nook: ${error.message}`;
             refresh();
         }
     });
 
     const dialog = h('dialog', { class: 'dialog dialog-sheet' },
-        h('h2', { class: 'dialog-title' }, 'Naar Nook'),
+        h('h2', { class: 'dialog-title' }, 'Send to Nook'),
         h('p', { class: 'dialog-body' }, recipe.title),
         toggleAll,
         list,
         status,
         h('div', { class: 'dialog-actions' },
-            h('button', { class: 'btn', type: 'button', onclick: () => dialog.close() }, 'Annuleren'),
+            h('button', { class: 'btn', type: 'button', onclick: () => dialog.close() }, 'Cancel'),
             send,
         ),
     );

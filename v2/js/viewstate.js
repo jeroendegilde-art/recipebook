@@ -1,5 +1,5 @@
-// Wat je per recept hebt ingesteld terwijl je kookt: schaal, vinkjes, huidige stap.
-// Dit staat los van de receptdata, zodat een sync-update het niet kan wissen.
+// What you set per recipe while cooking: scale, checks, current step.
+// This is kept apart from the recipe data, so a sync update cannot clear it.
 
 import { ingredientKey, parseServings, withServings } from './quantity.js';
 
@@ -13,10 +13,10 @@ function read(storage, key, fallback) {
 }
 
 function write(storage, key, value) {
-    try { storage.setItem(key, JSON.stringify(value)); } catch { /* opslag niet beschikbaar */ }
+    try { storage.setItem(key, JSON.stringify(value)); } catch { /* storage not available */ }
 }
 
-// --- Schaal. Geldt tot je de app sluit. ---
+// --- Scale. Holds until you close the app. ---
 
 export function getFactor(recipe) {
     const factor = read(sessionStorage, `rb2:factor:${recipe.id}`, 1);
@@ -27,7 +27,7 @@ export function setFactor(recipe, factor) {
     write(sessionStorage, `rb2:factor:${recipe.id}`, factor);
 }
 
-/** Beschrijft hoe de schaal getoond wordt: als aantal porties, of als vermenigvuldiger. */
+/** Describes how the scale is shown: as a number of servings, or as a multiplier. */
 export function scaleInfo(recipe) {
     const factor = getFactor(recipe);
     const base = parseServings(recipe.servings);
@@ -36,13 +36,13 @@ export function scaleInfo(recipe) {
     return { mode: 'servings', factor, base, count, label: withServings(recipe.servings, count) };
 }
 
-// --- Vinkjes. Bewaard per ingrediënt (op tekst), niet per positie. ---
+// --- Checks. Stored per ingredient (by text), not per position. ---
 
 const checkedKey = id => `rb2:checked:${id}`;
 
 export function getChecked(recipe) {
     const stored = new Set(read(localStorage, checkedKey(recipe.id), []));
-    // Alleen vinkjes die nog bij een bestaand ingrediënt horen tellen mee.
+    // Only checks that still belong to an existing ingredient count.
     const current = new Set(recipe.ingredients.map(ingredientKey));
     return new Set([...stored].filter(key => current.has(key)));
 }
@@ -56,10 +56,10 @@ export function toggleChecked(recipe, ingredient) {
 }
 
 export function clearChecked(recipe) {
-    try { localStorage.removeItem(checkedKey(recipe.id)); } catch { /* niets te wissen */ }
+    try { localStorage.removeItem(checkedKey(recipe.id)); } catch { /* nothing to clear */ }
 }
 
-// --- Huidige stap in de kookstand. ---
+// --- Current step in cook mode. ---
 
 export function getStep(recipe) {
     const step = read(sessionStorage, `rb2:step:${recipe.id}`, 0);
@@ -71,7 +71,7 @@ export function setStep(recipe, step) {
     write(sessionStorage, `rb2:step:${recipe.id}`, step);
 }
 
-// --- Filter, zoekterm en sortering van de lijst. ---
+// --- Filter, search term and sort order of the list. ---
 
 export const listState = read(sessionStorage, 'rb2:list', { filter: 'all', query: '', sort: 'recent' });
 

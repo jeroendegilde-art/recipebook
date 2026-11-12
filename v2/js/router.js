@@ -1,5 +1,5 @@
-// Navigatie via de hash (#/recept/abc). Elke schermwissel is een stap in de
-// browsergeschiedenis, dus de terugknop van telefoon en browser werkt gewoon.
+// Navigation through the hash (#/recipe/abc). Every screen change is a step in
+// the browser history, so the back button of phone and browser just works.
 
 let handler = () => {};
 let lastHash = null;
@@ -14,11 +14,11 @@ export function parse(hash = location.hash) {
     const [first, second, third] = parts;
 
     if (!first) return { name: 'home' };
-    if (first === 'nieuw') return { name: 'add' };
-    if (first === 'instellingen') return { name: 'settings' };
-    if (first === 'recept' && second) {
-        if (third === 'koken') return { name: 'cook', id: second };
-        if (third === 'bewerken') return { name: 'edit', id: second };
+    if (first === 'new') return { name: 'add' };
+    if (first === 'settings') return { name: 'settings' };
+    if (first === 'recipe' && second) {
+        if (third === 'cook') return { name: 'cook', id: second };
+        if (third === 'edit') return { name: 'edit', id: second };
         return { name: 'recipe', id: second };
     }
     return { name: 'home' };
@@ -30,8 +30,8 @@ function dispatch() {
     handler(parse());
 }
 
-// Hoeveel stappen binnen de app liggen er achter ons? Staat in history.state,
-// dus het klopt ook na herladen.
+// How many in-app steps are behind us? Kept in history.state, so it is still
+// right after a reload.
 const stepsBehind = () => history.state?.rb ?? 0;
 
 export function start(onRoute) {
@@ -48,13 +48,13 @@ export function go(path) {
     dispatch();
 }
 
-/** Vervang het huidige scherm, zonder extra stap in de geschiedenis. */
+/** Replace the current screen, without an extra step in the history. */
 export function replace(path) {
     history.replaceState({ rb: stepsBehind() }, '', `#/${path}`);
     dispatch();
 }
 
-/** Terug naar het vorige scherm. Kwam je via een directe link, dan naar `fallback`. */
+/** Back to the previous screen. If you arrived through a direct link, go to `fallback`. */
 export function back(fallback = '') {
     if (stepsBehind() > 0) history.back();
     else replace(fallback);
@@ -62,9 +62,9 @@ export function back(fallback = '') {
 
 export const paths = {
     home: '',
-    add: 'nieuw',
-    settings: 'instellingen',
-    recipe: id => `recept/${encodeURIComponent(id)}`,
-    cook: id => `recept/${encodeURIComponent(id)}/koken`,
-    edit: id => `recept/${encodeURIComponent(id)}/bewerken`,
+    add: 'new',
+    settings: 'settings',
+    recipe: id => `recipe/${encodeURIComponent(id)}`,
+    cook: id => `recipe/${encodeURIComponent(id)}/cook`,
+    edit: id => `recipe/${encodeURIComponent(id)}/edit`,
 };

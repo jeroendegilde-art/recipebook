@@ -1,6 +1,6 @@
-// Dunne laag om Firebase. De rest van de app kent alleen `backend`.
-// Zelfde project, zelfde SDK-versie en zelfde paden als v1, zodat beide
-// versies op dezelfde recepten werken.
+// Thin layer around Firebase. The rest of the app only knows `backend`.
+// Same project, same SDK version and same paths as v1, so both versions
+// work on the same recipes.
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import {
@@ -24,7 +24,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 export const backend = {
-    /** cb krijgt { uid, displayName, email, photoURL } of null. */
+    /** cb receives { uid, displayName, email, photoURL } or null. */
     onAuth(cb) {
         return onAuthStateChanged(auth, user => cb(user ? {
             uid: user.uid,
@@ -42,7 +42,7 @@ export const backend = {
         return signOut(auth);
     },
 
-    /** Volg een collectie. cb krijgt een array met documenten (plain objects). */
+    /** Watch a collection. cb receives an array of documents (plain objects). */
     watchCollection(path, cb, onError) {
         return onSnapshot(collection(db, ...path), snapshot => {
             const docs = [];
@@ -51,14 +51,14 @@ export const backend = {
         }, onError);
     },
 
-    /** Volg één document. cb krijgt het object of null. */
+    /** Watch a single document. cb receives the object or null. */
     watchDoc(path, cb, onError) {
         return onSnapshot(doc(db, ...path), snapshot => {
             cb(snapshot.exists() ? snapshot.data() : null);
         }, onError);
     },
 
-    /** Schrijf een document. Met merge worden alleen de meegegeven velden aangepast. */
+    /** Write a document. With merge only the given fields are changed. */
     set(path, data, { merge = false } = {}) {
         return setDoc(doc(db, ...path), data, merge ? { merge: true } : undefined);
     },

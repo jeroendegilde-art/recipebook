@@ -1,9 +1,9 @@
-// DOM-hulpjes. Alles wat van de gebruiker of van internet komt gaat via
-// textContent of setAttribute, nooit via innerHTML. Daarmee is injectie uitgesloten.
+// DOM helpers. Everything that comes from the user or the internet goes through
+// textContent or setAttribute, never through innerHTML. That rules out injection.
 
 /**
- * Maak een element. h('button', { class: 'btn', onclick: fn }, 'Tekst', childNode)
- * Kinderen: tekst, nodes, arrays, of null/false (wordt overgeslagen).
+ * Create an element. h('button', { class: 'btn', onclick: fn }, 'Text', childNode)
+ * Children: text, nodes, arrays, or null/false (skipped).
  */
 export function h(tag, props, ...children) {
     const el = document.createElement(tag);
@@ -39,7 +39,7 @@ export function replaceChildren(el, ...children) {
     return el;
 }
 
-// Vaste iconen. Dit zijn constanten uit deze file, dus innerHTML is hier veilig.
+// Fixed icons. These are constants from this file, so innerHTML is safe here.
 const ICON_PATHS = {
     back: '<path d="M15 5l-7 7 7 7"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
@@ -74,7 +74,7 @@ export function icon(name, { filled = false } = {}) {
     return span;
 }
 
-// --- Melding onderaan. Eén tegelijk, valt niet over de inhoud heen. ---
+// --- Toast at the bottom. One at a time, does not cover the content. ---
 
 let toastTimer = null;
 
@@ -104,19 +104,19 @@ export function toast(message, { action, onAction, tone = 'neutral', duration = 
     toastTimer = setTimeout(dismiss, action ? Math.max(duration, 6000) : duration);
 }
 
-// --- Dialogen op basis van <dialog>: Escape en focus regelt de browser. ---
+// --- Dialogs built on <dialog>: the browser handles Escape and focus. ---
 
 function openDialog(content, { className = '' } = {}) {
     const dialog = h('dialog', { class: `dialog ${className}`.trim() }, content);
     document.body.appendChild(dialog);
-    // Tik naast de dialoog sluit hem.
+    // A tap next to the dialog closes it.
     dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
     dialog.addEventListener('close', () => dialog.remove());
     dialog.showModal();
     return dialog;
 }
 
-export function confirmDialog({ title, body, confirmLabel = 'OK', cancelLabel = 'Annuleren', danger = false }) {
+export function confirmDialog({ title, body, confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false }) {
     return new Promise(resolve => {
         let result = false;
         const dialog = openDialog([
@@ -134,7 +134,7 @@ export function confirmDialog({ title, body, confirmLabel = 'OK', cancelLabel = 
     });
 }
 
-export function promptDialog({ title, label, value = '', confirmLabel = 'Opslaan', placeholder = '' }) {
+export function promptDialog({ title, label, value = '', confirmLabel = 'Save', placeholder = '' }) {
     return new Promise(resolve => {
         let result = null;
         const input = h('input', { class: 'input', type: 'text', value, placeholder, 'aria-label': label || title });
@@ -146,7 +146,7 @@ export function promptDialog({ title, label, value = '', confirmLabel = 'Opslaan
             label && h('label', { class: 'field-label' }, label),
             input,
             h('div', { class: 'dialog-actions' },
-                h('button', { class: 'btn', type: 'button', onclick: () => dialog.close() }, 'Annuleren'),
+                h('button', { class: 'btn', type: 'button', onclick: () => dialog.close() }, 'Cancel'),
                 h('button', { class: 'btn btn-primary', type: 'submit' }, confirmLabel),
             ),
         );
@@ -157,7 +157,7 @@ export function promptDialog({ title, label, value = '', confirmLabel = 'Opslaan
     });
 }
 
-/** Menu met acties. items: [{ label, icon, danger, checked, onSelect }] */
+/** Menu of actions. items: [{ label, icon, danger, checked, onSelect }] */
 export function actionSheet(title, items) {
     const dialog = openDialog([
         title && h('h2', { class: 'dialog-title' }, title),
@@ -175,7 +175,7 @@ export function actionSheet(title, items) {
     return dialog;
 }
 
-/** Alleen http(s)-links worden aanklikbaar. Geen javascript:-urls. */
+/** Only http(s) links become clickable. No javascript: urls. */
 export function safeUrl(value) {
     try {
         const url = new URL(String(value));

@@ -1,14 +1,13 @@
-// Opstarten en schermen wisselen.
+// Startup and switching screens.
 //
-// Indeling: links de lijst, rechts het geopende scherm. Op een telefoon is er
-// één tegelijk zichtbaar (zie data-route in de css). De lijst wordt nooit
-// afgebroken, dus scrollpositie, zoekterm en filter blijven staan.
+// Layout: the list on the left, the open screen on the right. On a phone only
+// one is visible at a time (see data-route in the css). The list is never torn
+// down, so scroll position, search term and filter stay put.
 
 import { h, icon, replaceChildren, toast, dismissToast } from './dom.js';
 import { state, on, init as initStore, signIn, getRecipe, updateRecipe, currentModel } from './store.js';
 import { start as startRouter, back, replace, paths } from './router.js';
 import { config as extractConfig } from './extract.js';
-import { applyTheme } from './theme.js';
 import { mountHome } from './views/home.js';
 import { mountRecipe } from './views/recipe.js';
 import { mountCook } from './views/cook.js';
@@ -18,19 +17,16 @@ import { recipeForm } from './views/form.js';
 
 const root = document.getElementById('app');
 let home = null;
-let current = null;     // { destroy() } van het scherm rechts
-let currentKey = null;  // welk scherm daar nu staat
-let overlayView = null; // de kookstand, als die open is
+let current = null;     // { destroy() } of the screen on the right
+let currentKey = null;  // which screen is there now
+let overlayView = null; // cook mode, when it is open
 let currentRoute = { name: 'home' };
 let panes = null;
-
-applyTheme();
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme());
 
 extractConfig.apiKey = () => state.settings.apiKey;
 extractConfig.model = () => currentModel();
 
-// --- Aanmeldscherm ---
+// --- Sign-in screen ---
 
 function renderLogin() {
     panes = null;
@@ -42,7 +38,7 @@ function renderLogin() {
     overlayView = null;
     currentKey = null;
     const error = h('p', { class: 'form-status', role: 'alert' });
-    const button = h('button', { class: 'btn btn-primary btn-wide', type: 'button' }, 'Aanmelden met Google');
+    const button = h('button', { class: 'btn btn-primary btn-wide', type: 'button' }, 'Sign in with Google');
     button.addEventListener('click', async () => {
         button.disabled = true;
         error.textContent = '';
@@ -50,24 +46,24 @@ function renderLogin() {
             await signIn();
         } catch (e) {
             const code = e?.code || '';
-            error.textContent = code === 'auth/popup-blocked' ? 'De pop-up werd geblokkeerd. Sta pop-ups toe voor deze site.'
-                : code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request' ? 'Aanmelden afgebroken.'
-                : code === 'auth/network-request-failed' ? 'Geen verbinding. Probeer het opnieuw.'
-                : 'Aanmelden lukte niet. Probeer het opnieuw.';
+            error.textContent = code === 'auth/popup-blocked' ? 'The pop-up was blocked. Allow pop-ups for this site.'
+                : code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request' ? 'Sign-in cancelled.'
+                : code === 'auth/network-request-failed' ? 'No connection. Try again.'
+                : 'Sign-in failed. Try again.';
         } finally {
             button.disabled = false;
         }
     });
     root.dataset.route = 'login';
     replaceChildren(root, h('div', { class: 'login' },
-        h('h1', { class: 'app-title' }, 'Recepten'),
-        h('p', { class: 'muted' }, 'Meld je aan om je recepten te zien. Ze worden bewaard bij je Google-account.'),
+        h('h1', { class: 'app-title' }, 'Recipe Book'),
+        h('p', { class: 'muted' }, 'Sign in to see your recipes. They are stored with your Google account.'),
         button,
         error,
     ));
 }
 
-// --- De app zelf ---
+// --- The app itself ---
 
 function renderShell() {
     const listPane = h('aside', { class: 'pane pane-list' });
@@ -81,17 +77,17 @@ function renderShell() {
 function mountEdit(container, id) {
     const recipe = getRecipe(id);
     if (!recipe) {
-        // Na deze schermwissel doorsturen, niet er middenin.
+        // Redirect after this screen change, not in the middle of it.
         queueMicrotask(() => replace(state.loaded ? paths.home : paths.recipe(id)));
         return placeholder(container);
     }
     const done = () => back(paths.recipe(id));
     replaceChildren(container,
         h('header', { class: 'topbar' },
-            h('button', { class: 'btn btn-quiet back-btn', type: 'button', onclick: done }, icon('back'), 'Terug'),
+            h('button', { class: 'btn btn-quiet back-btn', type: 'button', onclick: done }, icon('back'), 'Back'),
         ),
         h('div', { class: 'page' },
-            h('h1', { class: 'page-title' }, 'Recept bewerken'),
+            h('h1', { class: 'page-title' }, 'Edit recipe'),
             recipeForm({
                 recipe,
                 onSave: data => { updateRecipe(id, data); done(); },
@@ -104,7 +100,7 @@ function mountEdit(container, id) {
 
 function placeholder(container) {
     replaceChildren(container, h('div', { class: 'empty placeholder' },
-        h('p', null, state.recipes.length ? 'Kies een recept uit de lijst.' : ''),
+        h('p', null, state.recipes.length ? 'Choose a recipe from the list.' : ''),
     ));
     return {};
 }
@@ -115,12 +111,12 @@ function showRoute(route) {
     if (!panes) renderShell();
 
     const { mainPane, overlay } = panes;
-    dismissToast(); // een melding hoort bij het scherm waar hij ontstond
+    dismissToast(); // a toast belongs to the screen where it appeared
     root.dataset.route = route.name;
     home.setActive(route.id || null);
 
-    // De kookstand ligt over het recept heen. Het recept eronder blijft staan,
-    // zodat je na het koken terugkomt waar je was.
+    // Cook mode lies on top of the recipe. The recipe underneath stays mounted,
+    // so after cooking you return to where you were.
     overlayView?.destroy?.();
     overlayView = null;
     overlay.hidden = route.name !== 'cook';
@@ -151,15 +147,15 @@ on('auth', user => {
 });
 
 on('write-error', () => {
-    toast('Opslaan in de cloud lukte niet. De wijziging staat alleen op dit apparaat.', { tone: 'error', duration: 7000 });
+    toast('Could not save to the cloud. The change is only on this device.', { tone: 'error', duration: 7000 });
 });
 
 initStore();
 startRouter(showRoute);
 
-// Eigen service worker voor /v2/, zodat die van v1 deze bestanden niet vasthoudt.
+// Own service worker for /v2/, so the v1 worker does not hold on to these files.
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(error => console.warn('Service worker niet geregistreerd', error));
+        navigator.serviceWorker.register('./sw.js').catch(error => console.warn('Service worker not registered', error));
     });
 }

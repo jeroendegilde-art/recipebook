@@ -1,5 +1,5 @@
-// Recept toevoegen: via link, foto, geplakte tekst, zelf typen of een PDF.
-// Het uitlezen zelf gebeurt in extract.js (overgenomen uit v1).
+// Add a recipe: from a link, photo, pasted text, typed in, or a PDF.
+// The reading itself happens in extract.js (ported from v1).
 
 import { h, icon, replaceChildren, toast, safeUrl } from '../dom.js';
 import { state, on, addRecipe } from '../store.js';
@@ -11,32 +11,32 @@ import { recipeForm } from './form.js';
 
 const TABS = [
     ['link', 'Link'],
-    ['photo', 'Foto'],
-    ['paste', 'Plakken'],
-    ['manual', 'Zelf typen'],
+    ['photo', 'Photo'],
+    ['paste', 'Paste'],
+    ['manual', 'Type it in'],
     ['pdf', 'PDF'],
 ];
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-const MAX_PHOTO_EDGE = 1568; // groter voegt voor het model niets toe en kost alleen uploadtijd
+const MAX_PHOTO_EDGE = 1568; // larger adds nothing for the model and only costs upload time
 
 let lastTab = 'link';
 
-// Nieuw recept komt in de collectie waar je op dat moment in keek.
+// A new recipe goes into the collection you were looking at.
 function currentFolderId() {
     return state.folders.some(f => f.id === listState.filter) ? listState.filter : '';
 }
 
-function save(data, message = 'Recept toegevoegd') {
+function save(data, message = 'Recipe added') {
     if (!data?.title || !(data.ingredients?.length || data.instructions?.length)) {
         throw new Error('No recipe found');
     }
     const recipe = addRecipe({ ...data, folderId: data.folderId || currentFolderId() });
-    // Vervang het toevoeg-scherm, zodat "terug" naar de lijst gaat en niet naar het formulier.
+    // Replace the add screen, so "back" goes to the list and not to the form.
     replace(paths.recipe(recipe.id));
     toast(message);
 }
 
-/** Knop die tijdens het werk vergrendelt en zijn tekst aanpast. */
+/** Button that locks while working and changes its label. */
 function busyButton(label, busyLabel, task) {
     const button = h('button', { class: 'btn btn-primary btn-wide', type: 'button' }, label);
     button.addEventListener('click', async () => {
@@ -57,7 +57,7 @@ function busyButton(label, busyLabel, task) {
 
 function keyNotice(text) {
     return h('p', { class: 'notice' }, text, ' ',
-        h('a', { href: `#/${paths.settings}`, onclick: e => { e.preventDefault(); go(paths.settings); } }, 'Naar instellingen'));
+        h('a', { href: `#/${paths.settings}`, onclick: e => { e.preventDefault(); go(paths.settings); } }, 'Go to settings'));
 }
 
 function downscale(file) {
@@ -73,7 +73,7 @@ function downscale(file) {
             canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
             resolve({ base64: canvas.toDataURL('image/jpeg', 0.85), type: 'image/jpeg', name: file.name });
         };
-        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Deze foto kon niet worden gelezen.')); };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('This photo could not be read.')); };
         img.src = url;
     });
 }
@@ -88,19 +88,19 @@ function loadPdfJs() {
     });
 }
 
-// --- De vijf manieren ---
+// --- The five ways ---
 
 function linkTab() {
-    const input = h('input', { class: 'input', type: 'url', inputmode: 'url', placeholder: 'https://', autocomplete: 'off', 'aria-label': 'Link naar het recept' });
-    const button = busyButton('Recept ophalen', 'Bezig met ophalen…', async () => {
+    const input = h('input', { class: 'input', type: 'url', inputmode: 'url', placeholder: 'https://', autocomplete: 'off', 'aria-label': 'Link to the recipe' });
+    const button = busyButton('Get recipe', 'Getting recipe…', async () => {
         const url = safeUrl(input.value.trim());
-        if (!url) { toast('Plak een volledige link, beginnend met https://', { tone: 'error' }); input.focus(); return; }
+        if (!url) { toast('Paste a full link that starts with https://', { tone: 'error' }); input.focus(); return; }
         save(await fetchRecipeFromUrl(url));
     });
     input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); button.click(); } });
     return [
-        h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Link naar het recept'), input),
-        !state.settings.apiKey && keyNotice('Zonder API key lukt dit alleen bij sites die hun recept netjes aanbieden. Hoeveelheden worden dan grof omgerekend.'),
+        h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Link to the recipe'), input),
+        !state.settings.apiKey && keyNotice('Without an API key this only works on sites that publish their recipe in a structured way. Quantities are then converted roughly.'),
         button,
     ];
 }
@@ -121,16 +121,16 @@ function photoTab() {
     };
     const cameraInput = picker({ capture: 'environment' });
     const libraryInput = picker({ multiple: true });
-    const button = busyButton('Recept uitlezen', 'Bezig met uitlezen…', async () => {
-        if (photos.length === 0) { toast('Voeg eerst een foto toe', { tone: 'error' }); return; }
+    const button = busyButton('Read recipe', 'Reading recipe…', async () => {
+        if (photos.length === 0) { toast('Add a photo first', { tone: 'error' }); return; }
         save(await extractRecipeFromPhotos(photos));
     });
 
     function renderPreviews() {
         replaceChildren(previews, photos.map((photo, index) => h('div', { class: 'photo' },
-            h('img', { src: photo.base64, alt: `Foto ${index + 1}` }),
+            h('img', { src: photo.base64, alt: `Photo ${index + 1}` }),
             h('button', {
-                class: 'photo-remove', type: 'button', 'aria-label': `Verwijder foto ${index + 1}`,
+                class: 'photo-remove', type: 'button', 'aria-label': `Remove photo ${index + 1}`,
                 onclick: () => { photos = photos.filter((_, i) => i !== index); renderPreviews(); },
             }, icon('close')),
         )));
@@ -138,26 +138,26 @@ function photoTab() {
     }
     renderPreviews();
 
-    if (!state.settings.apiKey) return [keyNotice('Voor het uitlezen van foto\'s is een Claude API key nodig.')];
+    if (!state.settings.apiKey) return [keyNotice('Reading photos needs a Claude API key.')];
     return [
-        h('p', { class: 'muted' }, 'Fotografeer een recept uit een boek of tijdschrift. Meerdere pagina\'s van hetzelfde recept mag.'),
+        h('p', { class: 'muted' }, 'Photograph a recipe from a book or magazine. Several pages of the same recipe are fine.'),
         h('div', { class: 'button-row' },
-            h('button', { class: 'btn', type: 'button', onclick: () => cameraInput.click() }, icon('camera'), 'Maak foto'),
-            h('button', { class: 'btn', type: 'button', onclick: () => libraryInput.click() }, 'Kies uit foto\'s'),
+            h('button', { class: 'btn', type: 'button', onclick: () => cameraInput.click() }, icon('camera'), 'Take photo'),
+            h('button', { class: 'btn', type: 'button', onclick: () => libraryInput.click() }, 'Choose from photos'),
         ),
         cameraInput, libraryInput, previews, button,
     ];
 }
 
 function pasteTab() {
-    const text = h('textarea', { class: 'input', rows: 10, placeholder: 'Plak hier de tekst van het recept', 'aria-label': 'Tekst van het recept' });
+    const text = h('textarea', { class: 'input', rows: 10, placeholder: 'Paste the recipe text here', 'aria-label': 'Recipe text' });
     const source = h('input', { class: 'input', type: 'url', inputmode: 'url', placeholder: 'https://', autocomplete: 'off' });
     return [
-        h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Tekst van het recept'), text),
-        h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Bron (mag leeg blijven)'), source),
-        !state.settings.apiKey && keyNotice('Zonder API key wordt de tekst op goed geluk ingedeeld. Controleer het resultaat.'),
-        busyButton('Recept uitlezen', 'Bezig met uitlezen…', async () => {
-            if (!text.value.trim()) { toast('Plak eerst de tekst van het recept', { tone: 'error' }); text.focus(); return; }
+        h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Recipe text'), text),
+        h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Source (optional)'), source),
+        !state.settings.apiKey && keyNotice('Without an API key the text is split up by guesswork. Check the result.'),
+        busyButton('Read recipe', 'Reading recipe…', async () => {
+            if (!text.value.trim()) { toast('Paste the recipe text first', { tone: 'error' }); text.focus(); return; }
             save(await parseRecipeFromHtml(text.value.trim(), source.value.trim()));
         }),
     ];
@@ -166,20 +166,20 @@ function pasteTab() {
 function manualTab() {
     return [recipeForm({
         defaultFolderId: currentFolderId(),
-        saveLabel: 'Recept opslaan',
+        saveLabel: 'Save recipe',
         onSave: data => save(data),
         onCancel: () => back(paths.home),
     })];
 }
 
 function pdfTab() {
-    if (!state.settings.apiKey) return [keyNotice('Voor het uitlezen van een PDF is een Claude API key nodig.')];
+    if (!state.settings.apiKey) return [keyNotice('Reading a PDF needs a Claude API key.')];
 
     let found = [];
     const input = h('input', { type: 'file', accept: 'application/pdf', hidden: true });
     const status = h('p', { class: 'form-status', role: 'status' });
     const results = h('div');
-    const choose = h('button', { class: 'btn btn-wide', type: 'button', onclick: () => input.click() }, 'Kies een PDF');
+    const choose = h('button', { class: 'btn btn-wide', type: 'button', onclick: () => input.click() }, 'Choose a PDF');
 
     function renderResults() {
         if (found.length === 0) { replaceChildren(results); return; }
@@ -187,13 +187,14 @@ function pdfTab() {
         const importButton = h('button', { class: 'btn btn-primary btn-wide', type: 'button' });
         const refresh = () => {
             const n = selected().length;
-            importButton.textContent = n === 1 ? 'Voeg 1 recept toe' : `Voeg ${n} recepten toe`;
+            importButton.textContent = n === 1 ? 'Add 1 recipe' : `Add ${n} recipes`;
             importButton.disabled = n === 0;
         };
         importButton.addEventListener('click', () => {
             const folderId = currentFolderId();
             selected().forEach(item => addRecipe({ ...item.recipe, folderId }));
-            toast(`${selected().length} recepten toegevoegd`);
+            const n = selected().length;
+            toast(n === 1 ? '1 recipe added' : `${n} recipes added`);
             replace(paths.home);
         });
         replaceChildren(results,
@@ -224,17 +225,17 @@ function pdfTab() {
         found = [];
         renderResults();
         try {
-            status.textContent = 'PDF-lezer laden…';
+            status.textContent = 'Loading PDF reader…';
             await loadPdfJs();
             const recipes = await processPDFBulkImport(file, (phase, done, total) => {
                 status.textContent = phase === 'reading'
-                    ? `Pagina ${done} van ${total} lezen…`
-                    : `Recepten zoeken, deel ${Math.max(done, 1)} van ${total}…`;
+                    ? `Reading page ${done} of ${total}…`
+                    : `Looking for recipes, part ${Math.max(done, 1)} of ${total}…`;
             });
             found = recipes.map(recipe => ({ recipe, on: true }));
             status.textContent = found.length === 0
-                ? 'Geen recepten gevonden in deze PDF.'
-                : `${found.length} ${found.length === 1 ? 'recept' : 'recepten'} gevonden in ${file.name}.`;
+                ? 'No recipes found in this PDF.'
+                : `Found ${found.length} ${found.length === 1 ? 'recipe' : 'recipes'} in ${file.name}.`;
             renderResults();
         } catch (error) {
             status.textContent = translateError(error);
@@ -244,7 +245,7 @@ function pdfTab() {
     });
 
     return [
-        h('p', { class: 'muted' }, 'Lees een heel kookboek in één keer in. Dit kan een paar minuten duren.'),
+        h('p', { class: 'muted' }, 'Read in a whole cookbook in one go. This can take a few minutes.'),
         choose, input, status, results,
     ];
 }
@@ -266,18 +267,18 @@ export function mountAdd(container) {
 
     replaceChildren(container,
         h('header', { class: 'topbar' },
-            h('button', { class: 'btn btn-quiet back-btn', type: 'button', onclick: () => back(paths.home) }, icon('back'), 'Recepten'),
+            h('button', { class: 'btn btn-quiet back-btn', type: 'button', onclick: () => back(paths.home) }, icon('back'), 'Recipes'),
         ),
         h('div', { class: 'page' },
-            h('h1', { class: 'page-title' }, 'Recept toevoegen'),
+            h('h1', { class: 'page-title' }, 'Add recipe'),
             tabs,
             panel,
         ),
     );
     show(lastTab);
 
-    // Komt de API key binnen terwijl dit scherm open staat, dan verdwijnt de melding.
-    // Niet bij zelf typen: daar zou het formulier leeg raken.
+    // If the API key arrives while this screen is open, the notice disappears.
+    // Not on the type-it-in tab: the form would be emptied.
     let hadKey = !!state.settings.apiKey;
     const stop = on('settings', () => {
         const hasKey = !!state.settings.apiKey;

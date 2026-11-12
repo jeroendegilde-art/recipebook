@@ -1,4 +1,4 @@
-// Het receptformulier. Wordt gebruikt voor bewerken én voor zelf typen.
+// The recipe form. Used for editing and for typing a recipe in.
 
 import { h, toast, confirmDialog } from '../dom.js';
 import { state } from '../store.js';
@@ -6,11 +6,11 @@ import { state } from '../store.js';
 const lines = text => text.split('\n').map(line => line.trim()).filter(Boolean);
 
 /**
- * @param recipe   bestaand recept, of {} voor een nieuw recept
- * @param onSave   krijgt de ingevulde velden
- * @param onCancel wordt aangeroepen bij annuleren
+ * @param recipe   existing recipe, or {} for a new recipe
+ * @param onSave   receives the filled-in fields
+ * @param onCancel called on cancel
  */
-export function recipeForm({ recipe = {}, defaultFolderId = '', saveLabel = 'Opslaan', onSave, onCancel }) {
+export function recipeForm({ recipe = {}, defaultFolderId = '', saveLabel = 'Save', onSave, onCancel }) {
     let dirty = false;
     const field = (label, control, hint) => h('label', { class: 'field' },
         h('span', { class: 'field-label' }, label),
@@ -19,15 +19,15 @@ export function recipeForm({ recipe = {}, defaultFolderId = '', saveLabel = 'Ops
     );
 
     const title = h('input', { class: 'input', type: 'text', name: 'title', required: true, value: recipe.title || '', autocomplete: 'off' });
-    const servings = h('input', { class: 'input', type: 'text', name: 'servings', value: recipe.servings || '', placeholder: '4 personen', autocomplete: 'off' });
+    const servings = h('input', { class: 'input', type: 'text', name: 'servings', value: recipe.servings || '', placeholder: '4 servings', autocomplete: 'off' });
     const folder = h('select', { class: 'input', name: 'folder' },
-        h('option', { value: '' }, 'Geen collectie'),
+        h('option', { value: '' }, 'No collection'),
         state.folders.map(f => h('option', { value: f.id }, f.name)),
     );
     folder.value = recipe.folderId ?? defaultFolderId;
-    const ingredients = h('textarea', { class: 'input', name: 'ingredients', rows: 9, placeholder: '400 g spaghetti\n150 g guanciale\n4 eieren' });
+    const ingredients = h('textarea', { class: 'input', name: 'ingredients', rows: 9, placeholder: '400 g spaghetti\n150 g guanciale\n4 eggs' });
     ingredients.value = (recipe.ingredients || []).join('\n');
-    const instructions = h('textarea', { class: 'input', name: 'instructions', rows: 9, placeholder: 'Kook de pasta.\nBak het spek krokant.' });
+    const instructions = h('textarea', { class: 'input', name: 'instructions', rows: 9, placeholder: 'Cook the pasta.\nFry the guanciale until crisp.' });
     instructions.value = (recipe.instructions || []).join('\n');
     const notes = h('textarea', { class: 'input', name: 'notes', rows: 3 });
     notes.value = recipe.notes || '';
@@ -44,15 +44,15 @@ export function recipeForm({ recipe = {}, defaultFolderId = '', saveLabel = 'Ops
                 servings: servings.value.trim(),
                 folderId: folder.value,
                 ingredients: lines(ingredients.value),
-                // Nummering voor de stap hoort er niet in, die zet de app er zelf voor.
-                instructions: lines(instructions.value).map(step => step.replace(/^(?:stap\s*)?\d+[.):]\s+/i, '')),
+                // Step numbering does not belong in the text; the app adds it itself.
+                instructions: lines(instructions.value).map(step => step.replace(/^(?:(?:step|stap)\s*)?\d+[.):]\s+/i, '')),
                 notes: notes.value.trim(),
                 source: source.value.trim(),
                 image: image.value.trim(),
             };
-            if (!data.title) { toast('Geef het recept een titel', { tone: 'error' }); title.focus(); return; }
+            if (!data.title) { toast('Give the recipe a title', { tone: 'error' }); title.focus(); return; }
             if (data.ingredients.length === 0 && data.instructions.length === 0) {
-                toast('Vul ingrediënten of een bereiding in', { tone: 'error' });
+                toast('Add ingredients or a method', { tone: 'error' });
                 ingredients.focus();
                 return;
             }
@@ -60,26 +60,26 @@ export function recipeForm({ recipe = {}, defaultFolderId = '', saveLabel = 'Ops
             onSave(data);
         },
     },
-        field('Titel', title),
+        field('Title', title),
         h('div', { class: 'field-row' },
-            field('Porties', servings),
-            field('Collectie', folder),
+            field('Servings', servings),
+            field('Collection', folder),
         ),
-        field('Ingrediënten', ingredients, 'Eén per regel. Een regel die eindigt op een dubbele punt wordt een kopje.'),
-        field('Bereiding', instructions, 'Eén stap per regel.'),
-        field('Notities', notes),
-        field('Bron', source),
-        field('Afbeelding', image, 'Link naar een foto. Laat leeg voor geen foto.'),
+        field('Ingredients', ingredients, 'One per line. A line that ends with a colon becomes a heading.'),
+        field('Method', instructions, 'One step per line.'),
+        field('Notes', notes),
+        field('Source', source),
+        field('Image', image, 'Link to a photo. Leave empty for no photo.'),
         h('div', { class: 'form-actions' },
             h('button', {
                 class: 'btn', type: 'button',
                 onclick: async () => {
                     if (dirty && !(await confirmDialog({
-                        title: 'Wijzigingen weggooien?', confirmLabel: 'Weggooien', cancelLabel: 'Verder bewerken', danger: true,
+                        title: 'Discard changes?', confirmLabel: 'Discard', cancelLabel: 'Keep editing', danger: true,
                     }))) return;
                     onCancel();
                 },
-            }, 'Annuleren'),
+            }, 'Cancel'),
             h('button', { class: 'btn btn-primary', type: 'submit' }, saveLabel),
         ),
     );
