@@ -38,10 +38,15 @@ export function openAddToListSheet(recipe, factor) {
     });
 }
 
+// Products the AI was already asked about in this visit. An item it has no
+// Dutch name for ("water") is not asked again on every redraw.
+const translateTried = new Set();
+
 export function mountShopping(container) {
     let catalog = getCatalog();
     let catalogState = catalog ? 'ready' : 'loading'; // 'loading' | 'ready' | 'error'
     let matching = false;
+    let translating = false;
     let alive = true;
 
     const input = h('input', {
@@ -231,7 +236,8 @@ export function mountShopping(container) {
                 + 'Each price covers the packs your amount takes. Offers and bonus prices are not included.'];
         }
 
-        const canMatch = catalogState === 'ready' && missing > 0 && open.length > 0;
+        if (translating) status = 'Looking up the Dutch product names…';
+        const canMatch = catalogState === 'ready' && missing > 0 && open.length > 0 && !translating;
         replaceChildren(tools,
             open.length > 0 && h('p', { class: 'shop-status' }, status),
             canMatch && h('div', { class: 'shop-missing' },
@@ -256,6 +262,7 @@ export function mountShopping(container) {
         storeButtons.hidden = open.length === 0;
         renderTally(open, offersById);
         renderTools(open, offersById);
+        translateInBackground(open, offersById);
     }
 
     // --- Choosing the product for one item at one store ---
@@ -329,6 +336,29 @@ export function mountShopping(container) {
 
     // --- The AI matcher: only for prices that are still missing ---
 
+    // What is this called in a Dutch store? Recipes are often in English, the
+    // stores are not. Remembered per product, so it is asked once.
+    async function translate(items) {
+        if (items.length === 0) return;
+        items.forEach(item => translateTried.add(item.key));
+        const asked = items.map((item, i) => ({ id: `i${i}`, text: item.text, key: item.key }));
+        const terms = await translateWithAI(asked, { apiKey: state.settings.apiKey, model: currentModel() });
+        setTerms(Object.fromEntries(asked.filter(a => terms[a.id]).map(a => [a.key, terms[a.id]])));
+    }
+
+    // Runs by itself when you open the list or add an item: every item without
+    // a price and without a Dutch name is asked about, once.
+    function translateInBackground(open, offersById) {
+        if (translating || matching || catalogState !== 'ready' || !state.settings.apiKey) return;
+        const items = open.filter(item => !state.shopping.terms[item.key] && !translateTried.has(item.key)
+            && STORES.some(store => !offersById[item.id][store.id]));
+        if (items.length === 0) return;
+        translating = true;
+        translate(items)
+            .catch(error => toast(`Could not look up the Dutch names: ${error.message}`, { tone: 'error', duration: 7000 }))
+            .finally(() => { translating = false; if (alive) render(); });
+    }
+
     async function runAiMatch() {
         if (matching || !catalog) return;
         const options = { apiKey: state.settings.apiKey, model: currentModel() };
@@ -338,14 +368,8 @@ export function mountShopping(container) {
         matching = true;
         render();
         try {
-            // Step 1: what is this called in a Dutch store? Recipes are often in
-            // English, the stores are not. Remembered, so it is asked once per product.
-            const unnamed = missing().filter(item => !state.shopping.terms[item.key]);
-            if (unnamed.length > 0) {
-                const asked = unnamed.map((item, i) => ({ id: `i${i}`, text: item.text, key: item.key }));
-                const terms = await translateWithAI(asked, options);
-                setTerms(Object.fromEntries(asked.filter(a => terms[a.id]).map(a => [a.key, terms[a.id]])));
-            }
+            // Step 1: the Dutch names, in case the automatic run did not get them.
+            await translate(missing().filter(item => !state.shopping.terms[item.key]));
 
             // Step 2: with the Dutch name some items now match by themselves.
             // For the rest, let the AI choose from what the store has.
