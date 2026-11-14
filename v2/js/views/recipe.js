@@ -9,6 +9,7 @@ import { getFactor, setFactor, scaleInfo, getChecked, clearChecked } from '../vi
 import { fetchRecipeFromUrl, extractRecipeWithClaude } from '../extract.js';
 import { translateError } from '../messages.js';
 import { openNookSheet } from './nook.js';
+import { openAddToListSheet } from './shopping.js';
 import { ingredientList } from './ingredients.js';
 
 const FACTORS = [[0.5, '½×'], [1, '1×'], [2, '2×'], [3, '3×']];
@@ -200,6 +201,10 @@ export function mountRecipe(container, id) {
                             } catch { toast('Could not copy the ingredients', { tone: 'error' }); }
                         },
                     }, icon('copy'), 'Copy'),
+                    h('button', {
+                        class: 'btn btn-small', type: 'button',
+                        onclick: () => openAddToListSheet(recipe, factor),
+                    }, icon('list'), 'Add to list'),
                     hasNook && h('button', {
                         class: 'btn btn-small', type: 'button',
                         onclick: () => openNookSheet(recipe, factor),

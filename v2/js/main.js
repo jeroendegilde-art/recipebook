@@ -13,6 +13,7 @@ import { mountRecipe } from './views/recipe.js';
 import { mountCook } from './views/cook.js';
 import { mountAdd } from './views/add.js';
 import { mountSettings } from './views/settings.js';
+import { mountShopping } from './views/shopping.js';
 import { recipeForm } from './views/form.js';
 
 const root = document.getElementById('app');
@@ -134,6 +135,7 @@ function showRoute(route) {
     else if (mainName === 'edit') current = mountEdit(mainPane, route.id);
     else if (mainName === 'add') current = mountAdd(mainPane);
     else if (mainName === 'settings') current = mountSettings(mainPane);
+    else if (mainName === 'shopping') current = mountShopping(mainPane);
     else current = placeholder(mainPane);
 }
 

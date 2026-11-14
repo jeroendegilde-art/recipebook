@@ -106,7 +106,7 @@ export function toast(message, { action, onAction, tone = 'neutral', duration = 
 
 // --- Dialogs built on <dialog>: the browser handles Escape and focus. ---
 
-function openDialog(content, { className = '' } = {}) {
+export function openDialog(content, { className = '' } = {}) {
     const dialog = h('dialog', { class: `dialog ${className}`.trim() }, content);
     document.body.appendChild(dialog);
     // A tap next to the dialog closes it.

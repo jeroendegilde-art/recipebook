@@ -36,11 +36,16 @@ export function mountHome(container) {
     const list = h('ul', { class: 'recipe-list' });
     const empty = h('div', { class: 'empty', hidden: true });
     const syncLine = h('p', { class: 'sync-line' });
+    const cartCount = h('span', { class: 'cart-count', hidden: true });
+    const cartButton = h('button', {
+        class: 'icon-btn cart-btn', type: 'button', onclick: () => go(paths.shopping),
+    }, icon('cart'), cartCount);
 
     replaceChildren(container,
         h('header', { class: 'list-head' },
             h('h1', { class: 'app-title' }, 'Recipe Book'),
             h('div', { class: 'head-actions' },
+                cartButton,
                 h('button', {
                     class: 'icon-btn', type: 'button', 'aria-label': 'Settings',
                     onclick: () => go(paths.settings),
@@ -191,13 +196,21 @@ export function mountHome(container) {
         syncLine.dataset.state = state.sync;
     }
 
+    function renderCart() {
+        const open = state.shopping.items.filter(item => !item.checked).length;
+        cartCount.textContent = open;
+        cartCount.hidden = open === 0;
+        cartButton.setAttribute('aria-label', open === 0 ? 'Shopping list' : `Shopping list, ${open} to get`);
+    }
+
     function render() {
+        renderCart();
         renderChips();
         renderList();
         renderSync();
     }
 
-    const stop = [on('recipes', render), on('folders', render), on('sync', renderSync)];
+    const stop = [on('recipes', render), on('folders', render), on('sync', renderSync), on('shopping', renderCart)];
     render();
 
     return {
