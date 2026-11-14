@@ -86,7 +86,10 @@ export function parseMeasure(text) {
 }
 
 // "2 blikken tomaten": the number counts packs, whatever a pack weighs.
-const PACK_WORD = /^(?:blik(?:je|jes|ken)?|pak(?:je|jes|ken)?|pot(?:je|jes|ten)?|zak(?:je|jes|ken)?|fles(?:je|jes|sen)?|doos(?:je)?|dozen|bak(?:je|jes|ken)?|rol(?:len)?|tube|kuipje|beker)\b/i;
+const PACK_WORD = /^(?:blik(?:je|jes|ken)?|pak(?:je|jes|ken)?|pot(?:je|jes|ten)?|zak(?:je|jes|ken)?|fles(?:je|jes|sen)?|doos(?:je)?|dozen|bak(?:je|jes|ken)?|rol(?:len)?|tube|kuipje|beker|cans?|tins?|jars?|bottles?|packs?|packets?|packages?|bags?|box(?:es)?|cartons?|tubs?)\b/i;
+
+// "4 tenen knoflook": the number counts parts of one product, not products.
+const PART_WORD = /^(?:te(?:en|nen)|teentjes?|plak(?:ken|jes?)?|tak(?:ken|jes?)?|blaadjes?|bladeren|stengels?|snuf(?:jes?)?|scheut(?:jes?)?|cloves?|slices?|sprigs?|leaf|leaves|stalks?|pinch(?:es)?|dash(?:es)?|handfuls?)\b/i;
 
 /**
  * Packs of `product` needed for the amount on the list. Without this a 175 g
@@ -100,6 +103,7 @@ export function packsNeeded(item, product) {
     const need = parseMeasure(amount) || (/^\d+(?:[.,]\d+)?$/.test(amount)
         ? { qty: Number(amount.replace(',', '.')), unit: 'st' } : null);
     if (!need) return 1;
+    if (need.unit === 'st' && PART_WORD.test(item.name)) return 1;
     if (need.unit === 'st' && PACK_WORD.test(item.name)) return Math.min(99, Math.max(1, Math.ceil(need.qty)));
     const pack = parseMeasure(product?.s) || parseMeasure(product?.n);
     if (!pack || pack.unit !== need.unit) return 1;

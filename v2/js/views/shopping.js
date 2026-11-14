@@ -11,14 +11,14 @@
 
 import { h, icon, replaceChildren, toast, confirmDialog, actionSheet, openDialog } from '../dom.js';
 import {
-    state, on, currentModel, addShoppingItems, updateShoppingItem, removeShoppingItems, setOffers, getShoppingItem,
+    state, on, currentModel, setTerms, addShoppingItems, updateShoppingItem, removeShoppingItems, setOffers, getShoppingItem,
 } from '../store.js';
 import { back, paths } from '../router.js';
 import {
-    STORES, compare, cheaperStore, searchTerm, parsePrice, formatPrice, listAsText, packsNeeded,
+    STORES, compare, cheaperStore, parsePrice, formatPrice, listAsText, packsNeeded,
 } from '../shopping.js';
-import { SOURCE, getCatalog, loadCatalog, resolveOffer, search, productUrl } from '../catalog.js';
-import { matchWithAI } from '../aimatch.js';
+import { SOURCE, getCatalog, loadCatalog, resolveOffer, storeTerm, search, productUrl } from '../catalog.js';
+import { matchWithAI, translateWithAI } from '../aimatch.js';
 import { openIngredientPicker } from './picker.js';
 
 const plural = (n, one, many) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
@@ -268,7 +268,7 @@ export function mountShopping(container) {
         const results = h('ul', { class: 'product-list' });
         const query = h('input', {
             class: 'search-input', type: 'search', autocomplete: 'off', enterkeyhint: 'search',
-            'aria-label': `Search ${store.name}`, value: searchTerm(item.name),
+            'aria-label': `Search ${store.name}`, value: storeTerm(item, state.shopping),
             oninput: () => showResults(),
         });
         const priceField = h('input', {
@@ -287,7 +287,7 @@ export function mountShopping(container) {
             }
             const found = search(products, query.value, 30);
             replaceChildren(results, found.length === 0
-                ? h('li', { class: 'muted product-none' }, 'Nothing found. Try another word, in Dutch.')
+                ? h('li', { class: 'muted product-none' }, 'Nothing found. Try another word, in Dutch: the stores name their products in Dutch.')
                 : found.map(product => h('li', null, h('button', {
                     class: `product${current?.product?.l === product.l ? ' is-current' : ''}`, type: 'button',
                     onclick: () => choose({ pick: product }),
@@ -331,29 +331,45 @@ export function mountShopping(container) {
 
     async function runAiMatch() {
         if (matching || !catalog) return;
-        const tasks = [];
-        const targets = new Map();
-        for (const item of state.shopping.items.filter(i => !i.checked)) {
-            for (const store of STORES) {
-                if (offerFor(item, store)) continue;
-                const candidates = search(catalog.stores[store.id].products, item.name, 12);
-                if (candidates.length === 0) continue;
-                const id = `t${tasks.length}`;
-                tasks.push({ id, item: item.text, store: store.name, candidates });
-                targets.set(id, { key: item.key, storeId: store.id });
-            }
-        }
-        if (tasks.length === 0) { toast('The stores have nothing that looks like these items. Type the price by hand.'); return; }
+        const options = { apiKey: state.settings.apiKey, model: currentModel() };
+        const missing = () => state.shopping.items.filter(item => !item.checked
+            && STORES.some(store => !offerFor(item, store)));
 
         matching = true;
         render();
         try {
-            const chosen = await matchWithAI(tasks, { apiKey: state.settings.apiKey, model: currentModel() });
-            const offers = Object.entries(chosen).map(([id, product]) => ({ ...targets.get(id), pick: product }));
-            if (offers.length > 0) setOffers(offers);
-            const left = tasks.length - offers.length;
-            toast(offers.length === 0 ? 'The AI found no fitting products.'
-                : `${plural(offers.length, 'product', 'products')} chosen${left > 0 ? `, ${left} left open` : ''}. Check them once.`,
+            // Step 1: what is this called in a Dutch store? Recipes are often in
+            // English, the stores are not. Remembered, so it is asked once per product.
+            const unnamed = missing().filter(item => !state.shopping.terms[item.key]);
+            if (unnamed.length > 0) {
+                const asked = unnamed.map((item, i) => ({ id: `i${i}`, text: item.text, key: item.key }));
+                const terms = await translateWithAI(asked, options);
+                setTerms(Object.fromEntries(asked.filter(a => terms[a.id]).map(a => [a.key, terms[a.id]])));
+            }
+
+            // Step 2: with the Dutch name some items now match by themselves.
+            // For the rest, let the AI choose from what the store has.
+            const tasks = [];
+            const targets = new Map();
+            for (const item of missing()) {
+                for (const store of STORES) {
+                    if (offerFor(item, store)) continue;
+                    const candidates = search(catalog.stores[store.id].products, storeTerm(item, state.shopping), 12);
+                    if (candidates.length === 0) continue;
+                    const id = `t${tasks.length}`;
+                    tasks.push({ id, item: `${item.text} (${storeTerm(item, state.shopping)})`, store: store.name, candidates });
+                    targets.set(id, { key: item.key, storeId: store.id });
+                }
+            }
+            if (tasks.length > 0) {
+                const chosen = await matchWithAI(tasks, options);
+                const offers = Object.entries(chosen).map(([id, product]) => ({ ...targets.get(id), pick: product }));
+                if (offers.length > 0) setOffers(offers);
+            }
+
+            const left = missing().length;
+            toast(left === 0 ? 'Every item has a price at both stores. Check the products once.'
+                : `${plural(left, 'item is', 'items are')} still missing a price. Tap it to choose the product.`,
             { duration: 6000 });
         } catch (error) {
             toast(error.message, { tone: 'error', duration: 7000 });
@@ -430,7 +446,7 @@ export function mountShopping(container) {
             h('ul', { class: 'store-links' }, items.map(item => {
                 const offer = offerFor(item, store);
                 const href = (offer?.product && productUrl(catalog, store.id, offer.product.l))
-                    || store.searchUrl(searchTerm(item.name));
+                    || store.searchUrl(storeTerm(item, state.shopping));
                 return h('li', null, h('a', {
                     class: 'store-link', href, target: '_blank', rel: 'noopener noreferrer',
                     onclick: e => e.currentTarget.classList.add('is-opened'),

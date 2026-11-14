@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { stem, queryStems, indexProducts, search, bestMatch, resolveOffer, productUrl } from '../js/catalog.js';
-import { buildPrompt, parseAnswer } from '../js/aimatch.js';
+import { buildPrompt, parseAnswer, buildTranslatePrompt, parseTranslations } from '../js/aimatch.js';
 
 const AH = indexProducts([
     { n: 'AH Knoflook', l: 'wi1/knoflook', p: 1.29, s: '2 stuks' },
@@ -71,6 +71,22 @@ test('resolveOffer: your product, then your price, then an exact match', () => {
     assert.equal(resolveOffer(item, 'jumbo', none, catalog), null);
     assert.equal(productUrl(catalog, 'ah', 'wi1/knoflook'), 'https://www.ah.nl/producten/product/wi1/knoflook');
     assert.equal(productUrl(null, 'ah', 'wi1/knoflook'), null);
+});
+
+test('an English item is looked up under its Dutch name', () => {
+    const catalog = { stores: { ah: { url: '', products: AH } } };
+    const item = { key: 'garlic', name: 'cloves garlic, minced' };
+    assert.equal(resolveOffer(item, 'ah', { picks: {}, prices: {}, terms: {} }, catalog), null);
+    const offer = resolveOffer(item, 'ah', { picks: {}, prices: {}, terms: { garlic: 'knoflook' } }, catalog);
+    assert.equal(offer.source, 'auto');
+    assert.equal(offer.product.l, 'wi1/knoflook');
+});
+
+test('translations: only usable Dutch terms come back', () => {
+    const items = [{ id: 'i0', text: '2 cloves garlic' }, { id: 'i1', text: 'water' }, { id: 'i2', text: 'plain flour' }];
+    assert.match(buildTranslatePrompt(items), /i0 \| 2 cloves garlic/);
+    assert.deepEqual(parseTranslations('{"i0": " Knoflook ", "i1": null, "i2": 5, "i9": "x"}', items), { i0: 'knoflook' });
+    assert.throws(() => parseTranslations('sorry', items));
 });
 
 test('the AI may only choose from the candidates it was given', () => {

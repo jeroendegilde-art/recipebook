@@ -56,6 +56,9 @@ test('packsNeeded covers the amount, and admits what it cannot compare', () => {
     assert.equal(packsNeeded(need('5'), { s: '3 stuks' }), 2);
     assert.equal(packsNeeded(need('5'), { s: '1 kg' }), 1);             // onions against a net: unknown
     assert.equal(packsNeeded(need('2', 'blikken tomatenblokjes'), { s: '400 g' }), 2);
+    assert.equal(packsNeeded(need('3', 'cans chopped tomatoes'), { s: '400 g' }), 3);
+    assert.equal(packsNeeded(need('4', 'cloves garlic, minced'), { s: '2 stuks' }), 1);   // cloves are not bulbs
+    assert.equal(packsNeeded(need('6', 'tenen knoflook'), { s: '2 stuks' }), 1);
     assert.equal(packsNeeded(need('2 el'), { s: '500 ml' }), 1);
     assert.equal(packsNeeded(need(''), { s: '500 g' }), 1);
     assert.equal(packsNeeded(need('500 g'), null), 1);

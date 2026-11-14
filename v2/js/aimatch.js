@@ -33,12 +33,7 @@ export function buildPrompt(tasks) {
 
 /** Read the answer. Returns { [taskId]: candidate } for valid choices only. */
 export function parseAnswer(text, tasks) {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start < 0 || end <= start) throw new Error('The AI gave no usable answer.');
-    let data;
-    try { data = JSON.parse(text.slice(start, end + 1)); } catch { throw new Error('The AI gave no usable answer.'); }
-
+    const data = parseJson(text);
     const chosen = {};
     for (const task of tasks) {
         const index = data?.[task.id];
@@ -47,7 +42,50 @@ export function parseAnswer(text, tasks) {
     return chosen;
 }
 
-export async function matchWithAI(tasks, { apiKey, model }) {
+/**
+ * The recipes may be in English, the stores name their products in Dutch.
+ * Ask for the words you would type in a Dutch store's search box.
+ * items: [{ id, text }]
+ */
+export function buildTranslatePrompt(items) {
+    return [
+        'These are lines from a grocery list, possibly in English. The shop is a Dutch supermarket (Albert Heijn, Jumbo).',
+        'For each line, give the Dutch product name to type in the supermarket\'s search box.',
+        '',
+        'Rules:',
+        '- One to three words, lower case, the plain product: "2 cloves garlic, minced" -> "knoflook", "plain flour" -> "tarwebloem", "double cream" -> "slagroom".',
+        '- Leave out amounts, units, packaging and how it is cut or cooked.',
+        '- A line that is already Dutch: give its plain product name ("uien, gesnipperd" -> "uien").',
+        '- Not something a supermarket sells (water, "salt to taste" is fine: "zout"): answer null.',
+        '',
+        'Answer with one JSON object and nothing else: each id mapped to the Dutch term, or null.',
+        'Example: {"i0": "knoflook", "i1": null}',
+        '',
+        ...items.map(item => `${item.id} | ${item.text}`),
+    ].join('\n');
+}
+
+/** Returns { [itemId]: term } for usable answers only. */
+export function parseTranslations(text, items) {
+    const data = parseJson(text);
+    const terms = {};
+    for (const item of items) {
+        const term = data?.[item.id];
+        if (typeof term !== 'string') continue;
+        const clean = term.replace(/\s+/g, ' ').trim().toLowerCase();
+        if (clean && clean.length <= 40) terms[item.id] = clean;
+    }
+    return terms;
+}
+
+function parseJson(text) {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start < 0 || end <= start) throw new Error('The AI gave no usable answer.');
+    try { return JSON.parse(text.slice(start, end + 1)); } catch { throw new Error('The AI gave no usable answer.'); }
+}
+
+async function ask(prompt, { apiKey, model }) {
     if (!apiKey) throw new Error('Add your Claude API key in Settings first.');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 60000);
@@ -60,11 +98,7 @@ export async function matchWithAI(tasks, { apiKey, model }) {
                 'anthropic-version': '2023-06-01',
                 'anthropic-dangerous-direct-browser-access': 'true',
             },
-            body: JSON.stringify({
-                model,
-                max_tokens: 2000,
-                messages: [{ role: 'user', content: buildPrompt(tasks) }],
-            }),
+            body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: 'user', content: prompt }] }),
             signal: controller.signal,
         });
         if (!response.ok) {
@@ -73,11 +107,18 @@ export async function matchWithAI(tasks, { apiKey, model }) {
             throw new Error(error.error?.message || `The AI did not answer (${response.status}).`);
         }
         const data = await response.json();
-        const text = (data.content || []).filter(block => block.type === 'text').map(block => block.text).join('\n');
-        return parseAnswer(text, tasks);
+        return (data.content || []).filter(block => block.type === 'text').map(block => block.text).join('\n');
     } catch (error) {
         throw error.name === 'AbortError' ? new Error('The AI took too long. Try again.') : error;
     } finally {
         clearTimeout(timer);
     }
+}
+
+export async function matchWithAI(tasks, options) {
+    return parseAnswer(await ask(buildPrompt(tasks), options), tasks);
+}
+
+export async function translateWithAI(items, options) {
+    return parseTranslations(await ask(buildTranslatePrompt(items), options), items);
 }

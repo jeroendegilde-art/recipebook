@@ -49,8 +49,11 @@ How an item gets its price, in this order:
 3. A product the app matched by itself. Only when the name fits exactly
    ("knoflook" is "AH Knoflook"). Looser matching goes wrong too often.
 
-For what is left, "Choose with AI" asks Claude to choose from the candidates in
-the store's range. It needs the API key from Settings.
+For what is left, "Choose with AI" does two things with the API key from
+Settings. First it asks Claude what each item is called in a Dutch store
+("ground beef" is "rundergehakt"); recipes are often in English, the stores are
+not. That name is remembered per product. Then it lets Claude choose from the
+candidates in the store's range.
 
 The price shown covers the packs your amount takes: 500 g of mince is three
 packs of 175 g or two of 300 g. `packsNeeded` in `js/shopping.js` does that.
@@ -61,6 +64,7 @@ Limits, on purpose:
   fewer prices would look cheaper.
 - Offers and bonus prices are not in the data.
 - "5 onions" against a net of 1 kg cannot be converted: the app counts one pack.
+- Without an API key, English items find nothing: search the product by hand.
 - "Shop at AH" opens the product pages on ah.nl. Ordering and paying happen
   there. Neither store offers a way for an app like this to place an order.
 
