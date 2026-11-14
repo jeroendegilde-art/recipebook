@@ -3,6 +3,7 @@
 // functions below. The data format is the same as v1.
 
 import { backend } from './firebase.js';
+import { parseItem, mergeAmounts, productKey } from './shopping.js';
 
 export const state = {
     user: null,
@@ -10,6 +11,7 @@ export const state = {
     recipes: [],
     folders: [],
     settings: { apiKey: '', model: '', nookUrl: '', nookToken: '' },
+    shopping: { items: [], prices: {} }, // prices: { [product key]: { ah, jumbo, updatedAt } }
     sync: 'connecting', // 'connecting' | 'synced' | 'offline' | 'error'
     loaded: false,      // true once recipes have arrived from cache or cloud
 };
@@ -86,6 +88,61 @@ function writeCache() {
     } catch { /* storage full or blocked: the app carries on without a cache */ }
 }
 
+// --- Shopping list. One document: the items you need now, and the prices you
+// entered before. Prices outlive the items, so next week's milk is already priced. ---
+
+function normalizeItem(raw) {
+    const amount = asText(raw.amount).trim();
+    const name = asText(raw.name).trim();
+    return {
+        id: asText(raw.id),
+        amount,
+        name,
+        text: [amount, name].filter(Boolean).join(' '),
+        key: productKey(name),
+        count: Number.isInteger(raw.count) && raw.count > 0 ? raw.count : 1,
+        checked: raw.checked === true,
+        recipeTitle: asText(raw.recipeTitle),
+        order: typeof raw.order === 'number' ? raw.order : 0,
+    };
+}
+
+function normalizeShopping(data) {
+    const items = Object.entries(data?.items && typeof data.items === 'object' ? data.items : {})
+        .filter(([, raw]) => raw && typeof raw === 'object')
+        .map(([id, raw]) => normalizeItem({ ...raw, id }))
+        .filter(item => item.name)
+        .sort((a, b) => a.order - b.order || (a.id < b.id ? -1 : 1));
+
+    const prices = {};
+    for (const [key, raw] of Object.entries(data?.prices && typeof data.prices === 'object' ? data.prices : {})) {
+        if (!raw || typeof raw !== 'object') continue;
+        const entry = {};
+        for (const [field, value] of Object.entries(raw)) {
+            if (field === 'updatedAt') entry.updatedAt = asText(value);
+            else if (typeof value === 'number' && value > 0) entry[field] = value;
+        }
+        if (Object.keys(entry).some(field => field !== 'updatedAt')) prices[key] = entry;
+    }
+    return { items, prices };
+}
+
+const shoppingCacheKey = uid => `rb2:shopping:${uid}`;
+
+function readShoppingCache(uid) {
+    try { return JSON.parse(localStorage.getItem(shoppingCacheKey(uid)) || 'null'); } catch { return null; }
+}
+
+function shoppingChanged() {
+    if (state.user) {
+        try {
+            const items = Object.fromEntries(state.shopping.items.map(item => [item.id, item]));
+            localStorage.setItem(shoppingCacheKey(state.user.uid), JSON.stringify({ items, prices: state.shopping.prices }));
+        } catch { /* no cache, the app carries on */ }
+    }
+    emit('shopping');
+}
+
 function setSync(value) {
     if (state.sync === value) return;
     state.sync = value;
@@ -104,6 +161,7 @@ export function init() {
             state.recipes = [];
             state.folders = [];
             state.settings = { apiKey: '', model: '', nookUrl: '', nookToken: '' };
+            state.shopping = { items: [], prices: {} };
             state.loaded = false;
             emit('auth', null);
             return;
@@ -115,6 +173,7 @@ export function init() {
             state.folders = sortFolders((cached.folders || []).map(normalizeFolder));
             state.loaded = true;
         }
+        state.shopping = normalizeShopping(readShoppingCache(user.uid));
         emit('auth', user);
         startListening(user.uid);
     });
@@ -152,6 +211,12 @@ function startListening(uid) {
             };
             emit('settings');
         }, error => console.error('Loading settings failed', error)),
+
+        // Next to the settings document, so it falls under the same access rules.
+        backend.watchDoc(['users', uid, 'settings', 'shopping'], data => {
+            state.shopping = normalizeShopping(data);
+            shoppingChanged();
+        }, error => console.error('Loading the shopping list failed', error)),
     ];
 }
 
@@ -288,6 +353,109 @@ export function moveFolder(id, direction) {
     state.folders.forEach(folder => {
         write(folderPath(folder.id), { id: folder.id, order: folder.order }, { merge: true }).catch(() => {});
     });
+}
+
+// --- Shopping list ---
+
+const shoppingPath = () => ['users', state.user.uid, 'settings', 'shopping'];
+
+function storedItem(item) {
+    const { id, amount, name, count, checked, recipeTitle, order } = item;
+    return { id, amount, name, count, checked, recipeTitle, order };
+}
+
+function writeItems(items) {
+    const data = Object.fromEntries(items.map(item => [item.id, storedItem(item)]));
+    write(shoppingPath(), { items: data }, { merge: true }).catch(() => {});
+}
+
+export function getShoppingItem(id) {
+    return state.shopping.items.find(item => item.id === id) || null;
+}
+
+/**
+ * Add lines to the list. entries: [{ text, recipeTitle }].
+ * A product that is already on the list (and not yet in the cart) gets the
+ * extra amount instead of a second row.
+ */
+export function addShoppingItems(entries) {
+    const items = state.shopping.items.slice();
+    const changed = new Map();
+    let added = 0;
+    let merged = 0;
+    let order = Date.now();
+
+    for (const entry of entries) {
+        const parsed = parseItem(entry.text);
+        if (!parsed.name || !parsed.key) continue;
+        const index = items.findIndex(item => !item.checked && item.key === parsed.key);
+        if (index >= 0) {
+            const next = normalizeItem({ ...items[index], amount: mergeAmounts(items[index].amount, parsed.amount) });
+            items[index] = next;
+            changed.set(next.id, next);
+            merged += 1;
+        } else {
+            const item = normalizeItem({
+                id: newId(), amount: parsed.amount, name: parsed.name,
+                count: 1, checked: false, recipeTitle: entry.recipeTitle || '', order: order++,
+            });
+            items.push(item);
+            changed.set(item.id, item);
+            added += 1;
+        }
+    }
+
+    if (changed.size > 0) {
+        state.shopping = { ...state.shopping, items };
+        shoppingChanged();
+        writeItems([...changed.values()]);
+    }
+    return { added, merged };
+}
+
+export function updateShoppingItem(id, patch) {
+    const current = getShoppingItem(id);
+    if (!current) return null;
+    const updated = normalizeItem({ ...current, ...patch, id });
+    if (!updated.name) return null;
+    state.shopping = { ...state.shopping, items: state.shopping.items.map(item => (item.id === id ? updated : item)) };
+    shoppingChanged();
+    writeItems([updated]);
+    return updated;
+}
+
+/** Removes items and returns a function that puts them back. */
+export function removeShoppingItems(ids) {
+    const gone = new Set(ids);
+    const removed = state.shopping.items.filter(item => gone.has(item.id));
+    if (removed.length === 0) return () => {};
+    state.shopping = { ...state.shopping, items: state.shopping.items.filter(item => !gone.has(item.id)) };
+    shoppingChanged();
+    const fields = Object.fromEntries(removed.map(item => [item.id, backend.removeField()]));
+    write(shoppingPath(), { items: fields }, { merge: true }).catch(() => {});
+
+    return function undo() {
+        const present = new Set(state.shopping.items.map(item => item.id));
+        const back = removed.filter(item => !present.has(item.id));
+        const items = [...state.shopping.items, ...back].sort((a, b) => a.order - b.order || (a.id < b.id ? -1 : 1));
+        state.shopping = { ...state.shopping, items };
+        shoppingChanged();
+        writeItems(back);
+    };
+}
+
+/** Remember what a product costs at a store. `value` null forgets the price. */
+export function setPrice(key, storeId, value) {
+    if (!key) return;
+    const updatedAt = new Date().toISOString();
+    const entry = { ...state.shopping.prices[key], updatedAt };
+    if (value > 0) entry[storeId] = value; else delete entry[storeId];
+    const prices = { ...state.shopping.prices, [key]: entry };
+    if (Object.keys(entry).length === 1) delete prices[key];
+    state.shopping = { ...state.shopping, prices };
+    shoppingChanged();
+    const stored = { [storeId]: value > 0 ? value : backend.removeField(), updatedAt };
+    write(shoppingPath(), { prices: { [key]: stored } }, { merge: true }).catch(() => {});
 }
 
 export async function saveSettings(patch) {

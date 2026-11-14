@@ -16,6 +16,7 @@ export function parse(hash = location.hash) {
     if (!first) return { name: 'home' };
     if (first === 'new') return { name: 'add' };
     if (first === 'settings') return { name: 'settings' };
+    if (first === 'shopping') return { name: 'shopping' };
     if (first === 'recipe' && second) {
         if (third === 'cook') return { name: 'cook', id: second };
         if (third === 'edit') return { name: 'edit', id: second };
@@ -64,6 +65,7 @@ export const paths = {
     home: '',
     add: 'new',
     settings: 'settings',
+    shopping: 'shopping',
     recipe: id => `recipe/${encodeURIComponent(id)}`,
     cook: id => `recipe/${encodeURIComponent(id)}/cook`,
     edit: id => `recipe/${encodeURIComponent(id)}/edit`,

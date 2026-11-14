@@ -4,7 +4,7 @@
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import {
-    getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot,
+    getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, deleteField,
 } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import {
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged,
@@ -65,5 +65,10 @@ export const backend = {
 
     remove(path) {
         return deleteDoc(doc(db, ...path));
+    },
+
+    /** Value that removes a field when written with merge. */
+    removeField() {
+        return deleteField();
     },
 };

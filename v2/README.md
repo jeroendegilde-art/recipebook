@@ -14,6 +14,7 @@ No build step. These are plain ES modules that the browser loads directly.
 | `js/firebase.js` | Thin layer around the Firebase SDK |
 | `js/router.js` | Navigation through the hash, so the back button works |
 | `js/quantity.js` | Scaling quantities and searching. Pure functions, tested |
+| `js/shopping.js` | Shopping list: parsing items, prices, comparing the stores. Pure functions, tested |
 | `js/viewstate.js` | Scale, checks and current step per recipe |
 | `js/extract.js` | Reading recipes from a link, photo, text or PDF. Ported from v1 |
 | `js/messages.js` | Friendly wording for the error messages from `extract.js` |
@@ -23,8 +24,24 @@ No build step. These are plain ES modules that the browser loads directly.
 ## Testing
 
 ```bash
-node --test v2/tests/quantity.test.mjs
+node --test v2/tests/*.mjs
 ```
+
+## Shopping list
+
+Ingredients from a recipe ("Add to list") and items you type end up on one
+list, stored in `users/{uid}/settings/shopping`. For every item you can enter
+the price at Albert Heijn and at Jumbo. Prices are remembered per product, so
+they are still there the next time the product is on the list.
+
+Limits, on purpose:
+
+- Prices are typed by hand. Neither store has a public price API, and the app
+  has no server of its own to fetch them.
+- The verdict ("AH is €1.20 cheaper") only counts items priced at both stores.
+  Otherwise the store with fewer prices filled in would look cheaper.
+- "Shop at AH" opens a search on ah.nl per item. Ordering and paying happen on
+  the store's site. The app cannot place an order.
 
 ## Conventions in the code
 
