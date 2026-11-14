@@ -64,6 +64,48 @@ export function mergeAmounts(a, b) {
     return `${first} + ${second}`;
 }
 
+// --- How many packs does an amount take? ---
+
+const MEASURE = /(\d+(?:[.,]\d+)?)\s*(kg|kilo|gram|gr|g|ml|cl|dl|liter|l|stuks|stuk|st)(?![a-z])/i;
+const FACTOR = { kg: ['g', 1000], kilo: ['g', 1000], gram: ['g', 1], gr: ['g', 1], g: ['g', 1],
+    ml: ['ml', 1], cl: ['ml', 10], dl: ['ml', 100], liter: ['ml', 1000], l: ['ml', 1000],
+    stuks: ['st', 1], stuk: ['st', 1], st: ['st', 1] };
+
+/**
+ * "175 g", "0,5 l", "6 x 1 L", "ca. 100 g", "per stuk" -> { qty, unit } with
+ * unit 'g', 'ml' or 'st'. null when the text holds no measure.
+ */
+export function parseMeasure(text) {
+    const line = String(text ?? '').toLowerCase();
+    const match = MEASURE.exec(line);
+    if (!match) return /\bper stuk\b/.test(line) ? { qty: 1, unit: 'st' } : null;
+    const [unit, factor] = FACTOR[match[2]];
+    const times = /(\d+)\s*[x×]\s*$/.exec(line.slice(0, match.index));
+    const qty = Number(match[1].replace(',', '.')) * factor * (times ? Number(times[1]) : 1);
+    return qty > 0 ? { qty, unit } : null;
+}
+
+// "2 blikken tomaten": the number counts packs, whatever a pack weighs.
+const PACK_WORD = /^(?:blik(?:je|jes|ken)?|pak(?:je|jes|ken)?|pot(?:je|jes|ten)?|zak(?:je|jes|ken)?|fles(?:je|jes|sen)?|doos(?:je)?|dozen|bak(?:je|jes|ken)?|rol(?:len)?|tube|kuipje|beker)\b/i;
+
+/**
+ * Packs of `product` needed for the amount on the list. Without this a 175 g
+ * pack looks cheaper than a 300 g pack when you need 500 g of it.
+ * Returns 1 when the amount and the pack cannot be compared (5 onions against
+ * a net of 1 kg): then one pack is the honest guess.
+ */
+export function packsNeeded(item, product) {
+    const amount = String(item.amount ?? '').trim();
+    if (!amount) return 1;
+    const need = parseMeasure(amount) || (/^\d+(?:[.,]\d+)?$/.test(amount)
+        ? { qty: Number(amount.replace(',', '.')), unit: 'st' } : null);
+    if (!need) return 1;
+    if (need.unit === 'st' && PACK_WORD.test(item.name)) return Math.min(99, Math.max(1, Math.ceil(need.qty)));
+    const pack = parseMeasure(product?.s) || parseMeasure(product?.n);
+    if (!pack || pack.unit !== need.unit) return 1;
+    return Math.min(99, Math.max(1, Math.ceil(need.qty / pack.qty - 1e-9)));
+}
+
 /** "1,99", "€ 1.99", "2" -> a number of euros. Anything else -> null. */
 export function parsePrice(text) {
     const match = /^(\d{1,4})(?:[.,](\d{1,2}))?$/.exec(String(text ?? '').replace(/[€\s]/g, ''));

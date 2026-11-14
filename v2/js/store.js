@@ -11,7 +11,9 @@ export const state = {
     recipes: [],
     folders: [],
     settings: { apiKey: '', model: '', nookUrl: '', nookToken: '' },
-    shopping: { items: [], prices: {} }, // prices: { [product key]: { ah, jumbo, updatedAt } }
+    // prices: what you typed, { [product key]: { ah, jumbo, updatedAt } }
+    // picks: the product you chose per store, { [product key]: { ah: { l, n, s, p }, jumbo: {...} } }
+    shopping: { items: [], prices: {}, picks: {} },
     sync: 'connecting', // 'connecting' | 'synced' | 'offline' | 'error'
     loaded: false,      // true once recipes have arrived from cache or cloud
 };
@@ -100,7 +102,7 @@ function normalizeItem(raw) {
         name,
         text: [amount, name].filter(Boolean).join(' '),
         key: productKey(name),
-        count: Number.isInteger(raw.count) && raw.count > 0 ? raw.count : 1,
+        count: Number.isInteger(raw.count) && raw.count > 0 ? raw.count : 0, // 0: the app works it out
         checked: raw.checked === true,
         recipeTitle: asText(raw.recipeTitle),
         order: typeof raw.order === 'number' ? raw.order : 0,
@@ -124,7 +126,18 @@ function normalizeShopping(data) {
         }
         if (Object.keys(entry).some(field => field !== 'updatedAt')) prices[key] = entry;
     }
-    return { items, prices };
+
+    const picks = {};
+    for (const [key, raw] of Object.entries(data?.picks && typeof data.picks === 'object' ? data.picks : {})) {
+        if (!raw || typeof raw !== 'object') continue;
+        const entry = {};
+        for (const [storeId, pick] of Object.entries(raw)) {
+            if (!pick || typeof pick.l !== 'string' || !pick.l || !(pick.p > 0)) continue;
+            entry[storeId] = { l: pick.l, n: asText(pick.n), s: asText(pick.s), p: pick.p };
+        }
+        if (Object.keys(entry).length) picks[key] = entry;
+    }
+    return { items, prices, picks };
 }
 
 const shoppingCacheKey = uid => `rb2:shopping:${uid}`;
@@ -137,7 +150,7 @@ function shoppingChanged() {
     if (state.user) {
         try {
             const items = Object.fromEntries(state.shopping.items.map(item => [item.id, item]));
-            localStorage.setItem(shoppingCacheKey(state.user.uid), JSON.stringify({ items, prices: state.shopping.prices }));
+            localStorage.setItem(shoppingCacheKey(state.user.uid), JSON.stringify({ items, prices: state.shopping.prices, picks: state.shopping.picks }));
         } catch { /* no cache, the app carries on */ }
     }
     emit('shopping');
@@ -161,7 +174,7 @@ export function init() {
             state.recipes = [];
             state.folders = [];
             state.settings = { apiKey: '', model: '', nookUrl: '', nookToken: '' };
-            state.shopping = { items: [], prices: {} };
+            state.shopping = { items: [], prices: {}, picks: {} };
             state.loaded = false;
             emit('auth', null);
             return;
@@ -397,7 +410,7 @@ export function addShoppingItems(entries) {
         } else {
             const item = normalizeItem({
                 id: newId(), amount: parsed.amount, name: parsed.name,
-                count: 1, checked: false, recipeTitle: entry.recipeTitle || '', order: order++,
+                count: 0, checked: false, recipeTitle: entry.recipeTitle || '', order: order++,
             });
             items.push(item);
             changed.set(item.id, item);
@@ -444,18 +457,42 @@ export function removeShoppingItems(ids) {
     };
 }
 
-/** Remember what a product costs at a store. `value` null forgets the price. */
-export function setPrice(key, storeId, value) {
-    if (!key) return;
+/**
+ * Say what a product costs at a store. Per product and store there is one
+ * answer: a product you picked from the store's range, a price you typed, or
+ * neither (then the app matches by itself).
+ * offers: [{ key, storeId, pick?: { l, n, s, p }, price?: number }]
+ */
+export function setOffers(offers) {
+    const prices = { ...state.shopping.prices };
+    const picks = { ...state.shopping.picks };
+    const data = { prices: {}, picks: {} };
     const updatedAt = new Date().toISOString();
-    const entry = { ...state.shopping.prices[key], updatedAt };
-    if (value > 0) entry[storeId] = value; else delete entry[storeId];
-    const prices = { ...state.shopping.prices, [key]: entry };
-    if (Object.keys(entry).length === 1) delete prices[key];
-    state.shopping = { ...state.shopping, prices };
+
+    for (const { key, storeId, pick, price } of offers) {
+        if (!key) continue;
+        const priceEntry = { ...prices[key], updatedAt };
+        const pickEntry = { ...picks[key] };
+        delete priceEntry[storeId];
+        delete pickEntry[storeId];
+        data.prices[key] = { ...data.prices[key], [storeId]: backend.removeField(), updatedAt };
+        data.picks[key] = { ...data.picks[key], [storeId]: backend.removeField() };
+
+        if (pick) {
+            pickEntry[storeId] = { l: pick.l, n: pick.n, s: pick.s || '', p: pick.p };
+            data.picks[key][storeId] = pickEntry[storeId];
+        } else if (price > 0) {
+            priceEntry[storeId] = price;
+            data.prices[key][storeId] = price;
+        }
+
+        if (Object.keys(priceEntry).length > 1) prices[key] = priceEntry; else delete prices[key];
+        if (Object.keys(pickEntry).length > 0) picks[key] = pickEntry; else delete picks[key];
+    }
+
+    state.shopping = { ...state.shopping, prices, picks };
     shoppingChanged();
-    const stored = { [storeId]: value > 0 ? value : backend.removeField(), updatedAt };
-    write(shoppingPath(), { prices: { [key]: stored } }, { merge: true }).catch(() => {});
+    write(shoppingPath(), data, { merge: true }).catch(() => {});
 }
 
 export async function saveSettings(patch) {

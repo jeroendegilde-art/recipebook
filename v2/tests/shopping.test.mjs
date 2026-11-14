@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    productKey, searchTerm, parseItem, mergeAmounts, parsePrice, formatPrice, compare, cheaperStore, listAsText,
+    productKey, searchTerm, parseItem, parseMeasure, packsNeeded, mergeAmounts, parsePrice, formatPrice, compare, cheaperStore, listAsText,
 } from '../js/shopping.js';
 
 test('productKey drops preparation notes and accents', () => {
@@ -29,6 +29,36 @@ test('mergeAmounts sums equal units and keeps the rest readable', () => {
     assert.equal(mergeAmounts('2', '1 bunch'), '2 + 1 bunch');
     assert.equal(mergeAmounts('', '2 l'), '2 l');
     assert.equal(mergeAmounts('', ''), '');
+});
+
+test('parseMeasure reads the sizes the stores write', () => {
+    assert.deepEqual(parseMeasure('175 g'), { qty: 175, unit: 'g' });
+    assert.deepEqual(parseMeasure('0,5 l'), { qty: 500, unit: 'ml' });
+    assert.deepEqual(parseMeasure('500ML'), { qty: 500, unit: 'ml' });
+    assert.deepEqual(parseMeasure('300 GRAM'), { qty: 300, unit: 'g' });
+    assert.deepEqual(parseMeasure('1.5 liter'), { qty: 1500, unit: 'ml' });
+    assert.deepEqual(parseMeasure('6 x 1 L'), { qty: 6000, unit: 'ml' });
+    assert.deepEqual(parseMeasure('ca. 100 g'), { qty: 100, unit: 'g' });
+    assert.deepEqual(parseMeasure('2 stuks'), { qty: 2, unit: 'st' });
+    assert.deepEqual(parseMeasure('per stuk'), { qty: 1, unit: 'st' });
+    assert.deepEqual(parseMeasure('Jumbo Knoflook 100 g'), { qty: 100, unit: 'g' });
+    assert.equal(parseMeasure('Jumbo Courgette'), null);
+    assert.equal(parseMeasure(''), null);
+});
+
+test('packsNeeded covers the amount, and admits what it cannot compare', () => {
+    const need = (amount, name = 'x') => ({ amount, name });
+    assert.equal(packsNeeded(need('500 g'), { s: '175 g' }), 3);
+    assert.equal(packsNeeded(need('500 g'), { s: '300 g' }), 2);
+    assert.equal(packsNeeded(need('300 g'), { s: '300 g' }), 1);
+    assert.equal(packsNeeded(need('2 l'), { s: '0,5 l' }), 4);
+    assert.equal(packsNeeded(need('1 kg'), { s: '', n: 'Jumbo Bloem 500 g' }), 2);
+    assert.equal(packsNeeded(need('5'), { s: '3 stuks' }), 2);
+    assert.equal(packsNeeded(need('5'), { s: '1 kg' }), 1);             // onions against a net: unknown
+    assert.equal(packsNeeded(need('2', 'blikken tomatenblokjes'), { s: '400 g' }), 2);
+    assert.equal(packsNeeded(need('2 el'), { s: '500 ml' }), 1);
+    assert.equal(packsNeeded(need(''), { s: '500 g' }), 1);
+    assert.equal(packsNeeded(need('500 g'), null), 1);
 });
 
 test('parsePrice accepts comma and dot, rejects the rest', () => {

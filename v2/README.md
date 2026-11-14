@@ -14,7 +14,9 @@ No build step. These are plain ES modules that the browser loads directly.
 | `js/firebase.js` | Thin layer around the Firebase SDK |
 | `js/router.js` | Navigation through the hash, so the back button works |
 | `js/quantity.js` | Scaling quantities and searching. Pure functions, tested |
-| `js/shopping.js` | Shopping list: parsing items, prices, comparing the stores. Pure functions, tested |
+| `js/shopping.js` | Shopping list: parsing items, packs, comparing the stores. Pure functions, tested |
+| `js/catalog.js` | Store prices: downloading them and matching an item to a product. Matching is tested |
+| `js/aimatch.js` | Lets Claude choose a product from the store's range |
 | `js/viewstate.js` | Scale, checks and current step per recipe |
 | `js/extract.js` | Reading recipes from a link, photo, text or PDF. Ported from v1 |
 | `js/messages.js` | Friendly wording for the error messages from `extract.js` |
@@ -30,18 +32,37 @@ node --test v2/tests/*.mjs
 ## Shopping list
 
 Ingredients from a recipe ("Add to list") and items you type end up on one
-list, stored in `users/{uid}/settings/shopping`. For every item you can enter
-the price at Albert Heijn and at Jumbo. Prices are remembered per product, so
-they are still there the next time the product is on the list.
+list, stored in `users/{uid}/settings/shopping`. Every item shows what it costs
+at Albert Heijn and at Jumbo.
+
+Where the prices come from: the open data file of
+[Checkjebon.nl](https://www.checkjebon.nl/) (MIT licensed, refreshed daily, on
+GitHub). The app downloads that one file, keeps the two stores, and saves it
+for half a day. It never talks to the stores themselves, so there is no server
+and nothing to break when a store changes its app.
+
+How an item gets its price, in this order:
+
+1. A product you picked from the store's range. Remembered per product, with
+   today's price every time.
+2. A price you typed.
+3. A product the app matched by itself. Only when the name fits exactly
+   ("knoflook" is "AH Knoflook"). Looser matching goes wrong too often.
+
+For what is left, "Choose with AI" asks Claude to choose from the candidates in
+the store's range. It needs the API key from Settings.
+
+The price shown covers the packs your amount takes: 500 g of mince is three
+packs of 175 g or two of 300 g. `packsNeeded` in `js/shopping.js` does that.
 
 Limits, on purpose:
 
-- Prices are typed by hand. Neither store has a public price API, and the app
-  has no server of its own to fetch them.
-- The verdict ("AH is €1.20 cheaper") only counts items priced at both stores.
-  Otherwise the store with fewer prices filled in would look cheaper.
-- "Shop at AH" opens a search on ah.nl per item. Ordering and paying happen on
-  the store's site. The app cannot place an order.
+- The verdict only counts items priced at both stores. Otherwise the store with
+  fewer prices would look cheaper.
+- Offers and bonus prices are not in the data.
+- "5 onions" against a net of 1 kg cannot be converted: the app counts one pack.
+- "Shop at AH" opens the product pages on ah.nl. Ordering and paying happen
+  there. Neither store offers a way for an app like this to place an order.
 
 ## Conventions in the code
 
