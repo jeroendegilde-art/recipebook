@@ -13,7 +13,8 @@ export const state = {
     settings: { apiKey: '', model: '', nookUrl: '', nookToken: '' },
     // prices: what you typed, { [product key]: { ah, jumbo, updatedAt } }
     // picks: the product you chose per store, { [product key]: { ah: { l, n, s, p }, jumbo: {...} } }
-    shopping: { items: [], prices: {}, picks: {} },
+    // terms: the Dutch store name of a product, { [product key]: 'knoflook' }
+    shopping: { items: [], prices: {}, picks: {}, terms: {} },
     sync: 'connecting', // 'connecting' | 'synced' | 'offline' | 'error'
     loaded: false,      // true once recipes have arrived from cache or cloud
 };
@@ -137,7 +138,12 @@ function normalizeShopping(data) {
         }
         if (Object.keys(entry).length) picks[key] = entry;
     }
-    return { items, prices, picks };
+
+    const terms = {};
+    for (const [key, value] of Object.entries(data?.terms && typeof data.terms === 'object' ? data.terms : {})) {
+        if (typeof value === 'string' && value.trim()) terms[key] = value.trim();
+    }
+    return { items, prices, picks, terms };
 }
 
 const shoppingCacheKey = uid => `rb2:shopping:${uid}`;
@@ -150,7 +156,9 @@ function shoppingChanged() {
     if (state.user) {
         try {
             const items = Object.fromEntries(state.shopping.items.map(item => [item.id, item]));
-            localStorage.setItem(shoppingCacheKey(state.user.uid), JSON.stringify({ items, prices: state.shopping.prices, picks: state.shopping.picks }));
+            localStorage.setItem(shoppingCacheKey(state.user.uid), JSON.stringify({
+                items, prices: state.shopping.prices, picks: state.shopping.picks, terms: state.shopping.terms,
+            }));
         } catch { /* no cache, the app carries on */ }
     }
     emit('shopping');
@@ -174,7 +182,7 @@ export function init() {
             state.recipes = [];
             state.folders = [];
             state.settings = { apiKey: '', model: '', nookUrl: '', nookToken: '' };
-            state.shopping = { items: [], prices: {}, picks: {} };
+            state.shopping = { items: [], prices: {}, picks: {}, terms: {} };
             state.loaded = false;
             emit('auth', null);
             return;
@@ -493,6 +501,16 @@ export function setOffers(offers) {
     state.shopping = { ...state.shopping, prices, picks };
     shoppingChanged();
     write(shoppingPath(), data, { merge: true }).catch(() => {});
+}
+
+/** Remember what a product is called in a Dutch store. terms: { [product key]: 'knoflook' } */
+export function setTerms(terms) {
+    const entries = Object.entries(terms).filter(([key, value]) => key && typeof value === 'string' && value);
+    if (entries.length === 0) return;
+    const data = Object.fromEntries(entries);
+    state.shopping = { ...state.shopping, terms: { ...state.shopping.terms, ...data } };
+    shoppingChanged();
+    write(shoppingPath(), { terms: data }, { merge: true }).catch(() => {});
 }
 
 export async function saveSettings(patch) {

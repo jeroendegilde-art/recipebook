@@ -143,6 +143,14 @@ function byLink(products, link) {
 }
 
 /**
+ * What to look for in the store: the Dutch name the AI gave an item from an
+ * English recipe, else the item as written.
+ */
+export function storeTerm(item, shopping) {
+    return shopping.terms?.[item.key] || searchTerm(item.name);
+}
+
+/**
  * What an item costs at a store, and why we think so.
  *   'pick'   you chose this product; the price is today's
  *   'manual' you typed the price
@@ -160,7 +168,7 @@ export function resolveOffer(item, storeId, shopping, catalog) {
     }
     const manual = shopping.prices?.[item.key]?.[storeId];
     if (manual > 0) return { price: manual, source: 'manual' };
-    const match = products && bestMatch(products, item.name);
+    const match = products && bestMatch(products, storeTerm(item, shopping));
     if (match) return { price: match.p, source: 'auto', product: { n: match.n, l: match.l, s: match.s, p: match.p } };
     return null;
 }

@@ -11,14 +11,14 @@
 
 import { h, icon, replaceChildren, toast, confirmDialog, actionSheet, openDialog } from '../dom.js';
 import {
-    state, on, currentModel, addShoppingItems, updateShoppingItem, removeShoppingItems, setOffers, getShoppingItem,
+    state, on, currentModel, setTerms, addShoppingItems, updateShoppingItem, removeShoppingItems, setOffers, getShoppingItem,
 } from '../store.js';
 import { back, paths } from '../router.js';
 import {
-    STORES, compare, cheaperStore, searchTerm, parsePrice, formatPrice, listAsText, packsNeeded,
+    STORES, compare, cheaperStore, parsePrice, formatPrice, listAsText, packsNeeded,
 } from '../shopping.js';
-import { SOURCE, getCatalog, loadCatalog, resolveOffer, search, productUrl } from '../catalog.js';
-import { matchWithAI } from '../aimatch.js';
+import { SOURCE, getCatalog, loadCatalog, resolveOffer, storeTerm, search, productUrl } from '../catalog.js';
+import { matchWithAI, translateWithAI } from '../aimatch.js';
 import { openIngredientPicker } from './picker.js';
 
 const plural = (n, one, many) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
@@ -38,10 +38,15 @@ export function openAddToListSheet(recipe, factor) {
     });
 }
 
+// Products the AI was already asked about in this visit. An item it has no
+// Dutch name for ("water") is not asked again on every redraw.
+const translateTried = new Set();
+
 export function mountShopping(container) {
     let catalog = getCatalog();
     let catalogState = catalog ? 'ready' : 'loading'; // 'loading' | 'ready' | 'error'
     let matching = false;
+    let translating = false;
     let alive = true;
 
     const input = h('input', {
@@ -231,7 +236,8 @@ export function mountShopping(container) {
                 + 'Each price covers the packs your amount takes. Offers and bonus prices are not included.'];
         }
 
-        const canMatch = catalogState === 'ready' && missing > 0 && open.length > 0;
+        if (translating) status = 'Looking up the Dutch product names…';
+        const canMatch = catalogState === 'ready' && missing > 0 && open.length > 0 && !translating;
         replaceChildren(tools,
             open.length > 0 && h('p', { class: 'shop-status' }, status),
             canMatch && h('div', { class: 'shop-missing' },
@@ -256,6 +262,7 @@ export function mountShopping(container) {
         storeButtons.hidden = open.length === 0;
         renderTally(open, offersById);
         renderTools(open, offersById);
+        translateInBackground(open, offersById);
     }
 
     // --- Choosing the product for one item at one store ---
@@ -268,7 +275,7 @@ export function mountShopping(container) {
         const results = h('ul', { class: 'product-list' });
         const query = h('input', {
             class: 'search-input', type: 'search', autocomplete: 'off', enterkeyhint: 'search',
-            'aria-label': `Search ${store.name}`, value: searchTerm(item.name),
+            'aria-label': `Search ${store.name}`, value: storeTerm(item, state.shopping),
             oninput: () => showResults(),
         });
         const priceField = h('input', {
@@ -287,7 +294,7 @@ export function mountShopping(container) {
             }
             const found = search(products, query.value, 30);
             replaceChildren(results, found.length === 0
-                ? h('li', { class: 'muted product-none' }, 'Nothing found. Try another word, in Dutch.')
+                ? h('li', { class: 'muted product-none' }, 'Nothing found. Try another word, in Dutch: the stores name their products in Dutch.')
                 : found.map(product => h('li', null, h('button', {
                     class: `product${current?.product?.l === product.l ? ' is-current' : ''}`, type: 'button',
                     onclick: () => choose({ pick: product }),
@@ -329,31 +336,64 @@ export function mountShopping(container) {
 
     // --- The AI matcher: only for prices that are still missing ---
 
+    // What is this called in a Dutch store? Recipes are often in English, the
+    // stores are not. Remembered per product, so it is asked once.
+    async function translate(items) {
+        if (items.length === 0) return;
+        items.forEach(item => translateTried.add(item.key));
+        const asked = items.map((item, i) => ({ id: `i${i}`, text: item.text, key: item.key }));
+        const terms = await translateWithAI(asked, { apiKey: state.settings.apiKey, model: currentModel() });
+        setTerms(Object.fromEntries(asked.filter(a => terms[a.id]).map(a => [a.key, terms[a.id]])));
+    }
+
+    // Runs by itself when you open the list or add an item: every item without
+    // a price and without a Dutch name is asked about, once.
+    function translateInBackground(open, offersById) {
+        if (translating || matching || catalogState !== 'ready' || !state.settings.apiKey) return;
+        const items = open.filter(item => !state.shopping.terms[item.key] && !translateTried.has(item.key)
+            && STORES.some(store => !offersById[item.id][store.id]));
+        if (items.length === 0) return;
+        translating = true;
+        translate(items)
+            .catch(error => toast(`Could not look up the Dutch names: ${error.message}`, { tone: 'error', duration: 7000 }))
+            .finally(() => { translating = false; if (alive) render(); });
+    }
+
     async function runAiMatch() {
         if (matching || !catalog) return;
-        const tasks = [];
-        const targets = new Map();
-        for (const item of state.shopping.items.filter(i => !i.checked)) {
-            for (const store of STORES) {
-                if (offerFor(item, store)) continue;
-                const candidates = search(catalog.stores[store.id].products, item.name, 12);
-                if (candidates.length === 0) continue;
-                const id = `t${tasks.length}`;
-                tasks.push({ id, item: item.text, store: store.name, candidates });
-                targets.set(id, { key: item.key, storeId: store.id });
-            }
-        }
-        if (tasks.length === 0) { toast('The stores have nothing that looks like these items. Type the price by hand.'); return; }
+        const options = { apiKey: state.settings.apiKey, model: currentModel() };
+        const missing = () => state.shopping.items.filter(item => !item.checked
+            && STORES.some(store => !offerFor(item, store)));
 
         matching = true;
         render();
         try {
-            const chosen = await matchWithAI(tasks, { apiKey: state.settings.apiKey, model: currentModel() });
-            const offers = Object.entries(chosen).map(([id, product]) => ({ ...targets.get(id), pick: product }));
-            if (offers.length > 0) setOffers(offers);
-            const left = tasks.length - offers.length;
-            toast(offers.length === 0 ? 'The AI found no fitting products.'
-                : `${plural(offers.length, 'product', 'products')} chosen${left > 0 ? `, ${left} left open` : ''}. Check them once.`,
+            // Step 1: the Dutch names, in case the automatic run did not get them.
+            await translate(missing().filter(item => !state.shopping.terms[item.key]));
+
+            // Step 2: with the Dutch name some items now match by themselves.
+            // For the rest, let the AI choose from what the store has.
+            const tasks = [];
+            const targets = new Map();
+            for (const item of missing()) {
+                for (const store of STORES) {
+                    if (offerFor(item, store)) continue;
+                    const candidates = search(catalog.stores[store.id].products, storeTerm(item, state.shopping), 12);
+                    if (candidates.length === 0) continue;
+                    const id = `t${tasks.length}`;
+                    tasks.push({ id, item: `${item.text} (${storeTerm(item, state.shopping)})`, store: store.name, candidates });
+                    targets.set(id, { key: item.key, storeId: store.id });
+                }
+            }
+            if (tasks.length > 0) {
+                const chosen = await matchWithAI(tasks, options);
+                const offers = Object.entries(chosen).map(([id, product]) => ({ ...targets.get(id), pick: product }));
+                if (offers.length > 0) setOffers(offers);
+            }
+
+            const left = missing().length;
+            toast(left === 0 ? 'Every item has a price at both stores. Check the products once.'
+                : `${plural(left, 'item is', 'items are')} still missing a price. Tap it to choose the product.`,
             { duration: 6000 });
         } catch (error) {
             toast(error.message, { tone: 'error', duration: 7000 });
@@ -430,7 +470,7 @@ export function mountShopping(container) {
             h('ul', { class: 'store-links' }, items.map(item => {
                 const offer = offerFor(item, store);
                 const href = (offer?.product && productUrl(catalog, store.id, offer.product.l))
-                    || store.searchUrl(searchTerm(item.name));
+                    || store.searchUrl(storeTerm(item, state.shopping));
                 return h('li', null, h('a', {
                     class: 'store-link', href, target: '_blank', rel: 'noopener noreferrer',
                     onclick: e => e.currentTarget.classList.add('is-opened'),
