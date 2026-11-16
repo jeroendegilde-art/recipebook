@@ -82,6 +82,9 @@ function fit(stemmed, productWords) {
         if (word === stemmed) return 1;
         if (stemmed.length >= 4 && word.endsWith(stemmed)) best = Math.max(best, 0.6);
         else if (stemmed.length >= 4 && word.startsWith(stemmed)) best = Math.max(best, 0.3);
+        // The other way round: "laurierblad" on the list, "Laurier heel" on the
+        // shelf. Weak, so it only widens what you or the AI can choose from.
+        else if (word.length >= 5 && stemmed.startsWith(word)) best = Math.max(best, 0.4);
     }
     return best;
 }

@@ -43,6 +43,16 @@ test('bestMatch only answers when the name fits exactly', () => {
     assert.equal(bestMatch(AH, 'onions'), null);
 });
 
+test('search also finds the short name of a compound', () => {
+    const shelf = indexProducts([
+        { n: 'Euroma Laurierblad vriesdroog', l: 'a', p: 3.19, s: '9 g' },
+        { n: 'Verstegen Laurier heel', l: 'b', p: 1.99, s: '4 g' },
+        { n: 'Klene Lauriertjes', l: 'c', p: 2.59, s: '110 g' },
+    ], 'ah');
+    assert.deepEqual(search(shelf, 'laurierblad').map(p => p.l), ['a', 'b']);
+    assert.equal(bestMatch(shelf, 'laurierblad'), null);                // still no guessing
+});
+
 test('search is looser and ranks the closest first', () => {
     assert.deepEqual(search(AH, 'melk').map(p => p.l), ['wi4/melk-1l', 'wi5/bio-melk']);
     assert.equal(search(AH, 'gehakt')[0].l, 'wi6/gehakt');               // compound: ends in the word

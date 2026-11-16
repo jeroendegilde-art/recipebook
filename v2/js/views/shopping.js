@@ -378,7 +378,7 @@ export function mountShopping(container) {
             for (const item of missing()) {
                 for (const store of STORES) {
                     if (offerFor(item, store)) continue;
-                    const candidates = search(catalog.stores[store.id].products, storeTerm(item, state.shopping), 12);
+                    const candidates = search(catalog.stores[store.id].products, storeTerm(item, state.shopping), 16);
                     if (candidates.length === 0) continue;
                     const id = `t${tasks.length}`;
                     tasks.push({ id, item: `${item.text} (${storeTerm(item, state.shopping)})`, store: store.name, candidates });
